@@ -30,6 +30,8 @@ export class GameScene extends Phaser.Scene {
   private isProcessing = false;
   private selected: { row: number; col: number } | null = null;
   private selGraphic!: Phaser.GameObjects.Graphics;
+  private dragStart: { row: number; col: number } | null = null;
+  private dragLine!: Phaser.GameObjects.Graphics;
 
   private scoreText!: Phaser.GameObjects.Text;
   private coinIcon!: Phaser.GameObjects.Text;
@@ -110,7 +112,9 @@ export class GameScene extends Phaser.Scene {
     this.createUI();
     this.handleResize(this.cameras.main.width, this.cameras.main.height);
 
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointer(p));
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDragStart(p));
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onDragMove(p));
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onDragEnd(p));
   }
 
   private initObjectives() {
@@ -686,24 +690,68 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private onPointer(pointer: Phaser.Input.Pointer) {
+  private onDragStart(pointer: Phaser.Input.Pointer) {
     if (this.isProcessing || this.levelComplete) return;
     const { col, row } = this.cellAt(pointer.x, pointer.y);
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
-    if (this.isCrate(row, col)) return;
-    if (!this.grid[row][col]) return;
+    if (this.isCrate(row, col) || !this.grid[row][col]) return;
 
-    sound.playSwap();
+    this.dragStart = { row, col };
+    this.selected = { row, col };
+  }
 
-    if (this.selected) {
-      const s = this.selected;
-      if (s.row === row && s.col === col) { this.selected = null; return; }
-      if (this.isAdjacent(s, { row, col })) {
-        if (this.isCrate(row, col) || this.isCrate(s.row, s.col)) { this.selected = null; return; }
-        this.attemptSwap(s.row, s.col, row, col);
+  private onDragMove(pointer: Phaser.Input.Pointer) {
+    if (!this.dragStart) return;
+    const s = this.sf;
+    const cx = this.cellX(this.dragStart.col);
+    const cy = this.cellY(this.dragStart.row);
+    const dx = pointer.x - cx;
+    const dy = pointer.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = this.cell / 2;
+
+    if (!this.dragLine) {
+      this.dragLine = this.add.graphics().setDepth(6);
+    }
+    this.dragLine.clear();
+
+    if (dist < 6 * s || dist > maxDist * 3) return;
+
+    const clip = Math.min(dist, maxDist);
+    const nx = (dx / dist) * clip;
+    const ny = (dy / dist) * clip;
+    this.dragLine.lineStyle(3 * s, 0xffd700, 0.6);
+    this.dragLine.lineBetween(cx, cy, cx + nx, cy + ny);
+  }
+
+  private onDragEnd(pointer: Phaser.Input.Pointer) {
+    if (this.dragLine) { this.dragLine.clear(); }
+    if (!this.dragStart) return;
+
+    const start = this.dragStart;
+    this.dragStart = null;
+
+    const { col, row } = this.cellAt(pointer.x, pointer.y);
+    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
+    if (this.isCrate(row, col) || !this.grid[row][col]) return;
+
+    if (start.row === row && start.col === col) {
+      if (this.selected && this.selected.row === row && this.selected.col === col) {
         this.selected = null;
-      } else { this.selected = { row, col }; }
-    } else { this.selected = { row, col }; }
+      } else {
+        this.selected = { row, col };
+      }
+      return;
+    }
+
+    if (this.isAdjacent(start, { row, col })) {
+      this.selected = null;
+      sound.playSwap();
+      this.attemptSwap(start.row, start.col, row, col);
+      return;
+    }
+
+    this.selected = { row, col };
   }
 
   private cellAt(x: number, y: number) {
