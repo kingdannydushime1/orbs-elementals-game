@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { loadCoins, loadLives, buyLives, MAX_LIVES, LIVES_COST } from '../utils/save';
+import { loadCoins, loadLives, buyLives, hasLives, MAX_LIVES, LIVES_COST, loadLastLevel } from '../utils/save';
 
 export class MenuScene extends Phaser.Scene {
   private bgImage: Phaser.GameObjects.Image | null = null;
@@ -134,7 +134,14 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    makeBtn('PLAY', h * 0.53, 800, () => this.scene.start('LevelSelectScene'));
+    makeBtn('PLAY', h * 0.53, 800, () => {
+      if (!hasLives()) {
+        this.scene.restart();
+        return;
+      }
+      const levelId = loadLastLevel();
+      this.scene.start('GameScene', { levelId });
+    });
     makeBtn('LEVELS', h * 0.69, 1000, () => this.scene.start('LevelSelectScene'));
 
     this.createStatusPanel(w, h, s);

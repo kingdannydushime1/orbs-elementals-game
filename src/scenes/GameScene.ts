@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { sound } from '../utils/sound';
 import { LevelDef, levels, getLevel } from '../levels';
-import { deductLife, addCoins, COINS_PER_WIN, hasLives } from '../utils/save';
+import { deductLife, addCoins, COINS_PER_WIN, hasLives, loadCoins, loadLives, MAX_LIVES } from '../utils/save';
 
 const ELEMENT_COLORS: Record<number, number> = {
   0: 0xff5500, 1: 0x3399ff, 2: 0x996633, 3: 0x33cc33,
@@ -44,6 +44,8 @@ export class GameScene extends Phaser.Scene {
   private levelsBtnWood!: Phaser.GameObjects.Image;
   private levelsBtnBorder!: Phaser.GameObjects.Graphics;
   private levelsBtnZone!: Phaser.GameObjects.Zone;
+  private heartsText!: Phaser.GameObjects.Text;
+  private hudCoinsText!: Phaser.GameObjects.Text;
   private objectivesTexts: Phaser.GameObjects.Text[] = [];
   private objectiveIcons: Phaser.GameObjects.Image[] = [];
   private objPanel!: Phaser.GameObjects.GameObject;
@@ -100,6 +102,12 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.bakeOrbTextures();
     this.selGraphic = this.add.graphics().setDepth(5);
+
+    if (!deductLife()) {
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.time.delayedCall(300, () => this.scene.start('MenuScene'));
+      return;
+    }
 
     this.initObjectives();
     this.recalcLayout();
@@ -216,6 +224,12 @@ export class GameScene extends Phaser.Scene {
     this.muteBtn?.setPosition(panelX + panelW - 12 * s - 90 * s - 20 * s, row2y);
     this.muteBtn?.setFontSize(`${Math.round(28 * s)}px`);
 
+    this.heartsText?.setPosition(panelX + 10 * s, row2y);
+    this.heartsText?.setFontSize(`${Math.round(22 * s)}px`);
+
+    this.hudCoinsText?.setPosition(panelX + panelW - 12 * s - 90 * s - 20 * s - 80 * s, row2y);
+    this.hudCoinsText?.setFontSize(`${Math.round(20 * s)}px`);
+
     this.levelsBtnWood?.setPosition(panelX + panelW - 12 * s - 45 * s, row2y + 15 * s);
     this.levelsBtnWood?.setDisplaySize(90 * s, 30 * s);
     {
@@ -296,6 +310,16 @@ export class GameScene extends Phaser.Scene {
       const muted = sound.toggleMute();
       this.muteBtn.setText(muted ? '\u{1F507}' : '\u{1F50A}');
     });
+
+    const lives = loadLives();
+    this.heartsText = this.add.text(panelX + 10 * s, row2y, '\u2764'.repeat(lives) + '\u2661'.repeat(Math.max(0, MAX_LIVES - lives)), {
+      fontSize: `${Math.round(22 * s)}px`,
+    }).setOrigin(0, 0).setDepth(3);
+
+    const coins = loadCoins();
+    this.hudCoinsText = this.add.text(panelX + panelW - 12 * s - 90 * s - 20 * s - 80 * s, row2y, `\u{1FA99} ${coins}`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(20 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(1, 0).setDepth(3);
 
     {
       const levelsBtnW = 90 * s, levelsBtnH = 30 * s;

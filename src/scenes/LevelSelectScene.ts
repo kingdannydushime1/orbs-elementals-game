@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { levels, getTotalLevels } from '../levels';
-import { hasLives } from '../utils/save';
+import { hasLives, saveLastLevel } from '../utils/save';
 
 const ELEMENT_COLORS = [0xff6b35, 0x3a9bff, 0x8b6b3a, 0x44cc44];
 const ELEMENT_GLOWS = [0xff8844, 0x66bbff, 0xaa8855, 0x66ee66];
@@ -259,6 +259,7 @@ export class LevelSelectScene extends Phaser.Scene {
             this.scene.start('MenuScene');
             return;
           }
+          saveLastLevel(level.id);
           this.cameras.main.fadeOut(250, 0, 0, 0);
           this.time.delayedCall(250, () => {
             this.scene.start('GameScene', { levelId: level.id });
