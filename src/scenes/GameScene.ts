@@ -31,6 +31,7 @@ export class GameScene extends Phaser.Scene {
   private selected: { row: number; col: number } | null = null;
   private selGraphic!: Phaser.GameObjects.Graphics;
   private dragStart: { row: number; col: number; x: number; y: number } | null = null;
+  private dragEnd: { x: number; y: number } | null = null;
 
   private scoreText!: Phaser.GameObjects.Text;
   private coinIcon!: Phaser.GameObjects.Text;
@@ -112,6 +113,7 @@ export class GameScene extends Phaser.Scene {
     this.handleResize(this.cameras.main.width, this.cameras.main.height);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDragStart(p));
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onDragMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onSwipeEnd(p));
   }
 
@@ -694,36 +696,67 @@ export class GameScene extends Phaser.Scene {
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
     if (this.isCrate(row, col) || !this.grid[row][col]) return;
     this.dragStart = { row, col, x: pointer.x, y: pointer.y };
+    this.dragEnd = null;
     this.selected = { row, col };
+  }
+
+  private onDragMove(pointer: Phaser.Input.Pointer) {
+    if (!this.dragStart) return;
+    this.dragEnd = { x: pointer.x, y: pointer.y };
   }
 
   private onSwipeEnd(pointer: Phaser.Input.Pointer) {
     if (!this.dragStart) return;
     const start = this.dragStart;
     this.dragStart = null;
+    const end = this.dragEnd || pointer;
+    this.dragEnd = null;
 
-    const { col, row } = this.cellAt(pointer.x, pointer.y);
-    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
-    if (this.isCrate(row, col) || !this.grid[row][col]) return;
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (start.row === row && start.col === col) {
-      this.selected = this.selected ? null : { row, col };
-      return;
-    }
+    if (dist < 15) {
+      const { col, row } = this.cellAt(pointer.x, pointer.y);
+      if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
+      if (this.isCrate(row, col) || !this.grid[row][col]) return;
 
-    if (!this.isAdjacent(start, { row, col })) {
+      if (start.row === row && start.col === col) {
+        this.selected = this.selected ? null : { row, col };
+        return;
+      }
+      if (this.isAdjacent(start, { row, col })) {
+        if (this.isCrate(row, col) || this.isCrate(start.row, start.col)) { this.selected = null; return; }
+        this.selected = null;
+        sound.playSwap();
+        this.attemptSwap(start.row, start.col, row, col);
+        return;
+      }
       this.selected = { row, col };
       return;
     }
 
-    if (this.isCrate(row, col) || this.isCrate(start.row, start.col)) {
+    let dr = 0, dc = 0;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      dc = dx > 0 ? 1 : -1;
+    } else {
+      dr = dy > 0 ? 1 : -1;
+    }
+
+    const tr = start.row + dr;
+    const tc = start.col + dc;
+    if (tr < 0 || tr >= this.rows || tc < 0 || tc >= this.cols) {
+      this.selected = null;
+      return;
+    }
+    if (this.isCrate(tr, tc) || !this.grid[tr][tc]) {
       this.selected = null;
       return;
     }
 
     this.selected = null;
     sound.playSwap();
-    this.attemptSwap(start.row, start.col, row, col);
+    this.attemptSwap(start.row, start.col, tr, tc);
   }
 
   private cellAt(x: number, y: number) {
