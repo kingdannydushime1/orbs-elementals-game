@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { loadCoins, loadLives, buyLives, MAX_LIVES, LIVES_COST } from '../utils/save';
 
 export class MenuScene extends Phaser.Scene {
   private bgImage: Phaser.GameObjects.Image | null = null;
@@ -80,8 +81,6 @@ export class MenuScene extends Phaser.Scene {
     const btnH = 80 * s;
     const btnPad = 20 * s;
 
-    const playY = h * 0.53;
-
     const makeBtn = (label: string, cy: number, delay: number, cb: () => void) => {
       const panel = this.add.image(w / 2, cy, 'wood_panel').setDepth(0);
       panel.setDisplaySize(btnW + btnPad, btnH + btnPad);
@@ -135,51 +134,89 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    makeBtn('PLAY', playY, 800, () => this.scene.start('GameScene', { levelId: 1 }));
+    makeBtn('PLAY', h * 0.53, 800, () => this.scene.start('LevelSelectScene'));
+    makeBtn('LEVELS', h * 0.69, 1000, () => this.scene.start('LevelSelectScene'));
 
-    const levelsY = h * 0.69;
-
-    makeBtn('LEVELS', levelsY, 1000, () => this.scene.start('LevelSelectScene'));
-
-    const totalCoins = this.getTotalCoins();
-    const coinPanelW = 180 * s;
-    const coinPanelH = 48 * s;
-    const coinPanelX = (w - coinPanelW) / 2;
-    const coinPanelY = h * 0.80;
-
-    const coinPanel = this.add.image(w / 2, coinPanelY + coinPanelH / 2, 'wood_panel').setDepth(0);
-    coinPanel.setDisplaySize(coinPanelW, coinPanelH);
-
-    const coinBorder = this.add.graphics().setDepth(0.5);
-    coinBorder.lineStyle(2 * s, 0xffd700, 0.5);
-    coinBorder.strokeRoundedRect(coinPanelX, coinPanelY, coinPanelW, coinPanelH, 16 * s);
-
-    if (totalCoins > 0) {
-      const coinIcon = this.add.text(coinPanelX + 24 * s, coinPanelY + coinPanelH / 2, '\u{1FA99}', {
-        fontSize: `${Math.round(26 * s)}px`,
-      }).setOrigin(0.5).setDepth(1).setScale(0).setPadding(0, 4, 0, 4);
-      this.tweens.add({ targets: coinIcon, scaleX: 1, scaleY: 1, alpha: 1, duration: 500, delay: 1100, ease: 'Back.easeOut' });
-
-      const coinsText = this.add.text(coinPanelX + 56 * s, coinPanelY + coinPanelH / 2, String(totalCoins), {
-        fontFamily: 'Georgia, serif',
-        fontSize: `${Math.round(22 * s)}px`,
-        color: '#ffd700',
-        fontStyle: 'bold',
-      }).setOrigin(0, 0.5).setDepth(1).setAlpha(0);
-      this.tweens.add({ targets: coinsText, alpha: 1, duration: 400, delay: 1300, ease: 'Quad.easeOut' });
-    }
-
-    const version = this.add.text(w - 12 * s, h - 12 * s, 'v1.0', {
-      fontFamily: 'Georgia, serif',
-      fontSize: `${Math.round(11 * s)}px`,
-      color: '#4a3a6a',
-    }).setOrigin(1, 1).setDepth(1);
-
+    this.createStatusPanel(w, h, s);
     this.createFloatingOrbs(w, h, s);
 
     this.scale.on('resize', () => {
       this.scene.restart();
     });
+  }
+
+  private createStatusPanel(w: number, h: number, s: number) {
+    const lives = loadLives();
+    const coins = loadCoins();
+
+    const panelW = 260 * s;
+    const panelH = 60 * s;
+    const panelX = (w - panelW) / 2;
+    const panelY = h * 0.80;
+
+    const panel = this.add.image(w / 2, panelY + panelH / 2, 'wood_panel').setDepth(0);
+    panel.setDisplaySize(panelW, panelH);
+
+    const border = this.add.graphics().setDepth(0.5);
+    border.lineStyle(2 * s, 0xffd700, 0.5);
+    border.strokeRoundedRect(panelX, panelY, panelW, panelH, 16 * s);
+
+    const heartStr = '\u2764'.repeat(lives) + '\u2661'.repeat(Math.max(0, MAX_LIVES - lives));
+    const heartText = this.add.text(panelX + 16 * s, panelY + panelH / 2, heartStr, {
+      fontSize: `${Math.round(22 * s)}px`,
+    }).setOrigin(0, 0.5).setDepth(1);
+    const heartColor = lives === 0 ? '#ef4444' : '#ff4d6d';
+
+    const heartColored = this.add.text(panelX + 16 * s, panelY + panelH / 2, '\u2764'.repeat(lives), {
+      fontSize: `${Math.round(22 * s)}px`,
+      color: heartColor,
+    }).setOrigin(0, 0.5).setDepth(1);
+
+    const coinIcon = this.add.text(panelX + panelW - 60 * s, panelY + panelH / 2, '\u{1FA99}', {
+      fontSize: `${Math.round(22 * s)}px`,
+    }).setOrigin(0, 0.5).setDepth(1).setPadding(0, 4, 0, 4);
+
+    const coinText = this.add.text(panelX + panelW - 34 * s, panelY + panelH / 2, String(coins), {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(20 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0, 0.5).setDepth(1);
+
+    if (lives === 0) {
+      const cw = Math.min(220 * s, w * 0.6);
+      const ch = 50 * s;
+      const cx = (w - cw) / 2;
+      const cy = panelY + panelH + 16 * s;
+
+      const buyPanel = this.add.image(w / 2, cy + ch / 2, 'wood_panel').setDepth(0);
+      buyPanel.setDisplaySize(cw, ch);
+
+      const buyBorder = this.add.graphics().setDepth(0.5);
+      buyBorder.lineStyle(2 * s, 0x8b6914, 0.6);
+      buyBorder.strokeRoundedRect(cx, cy, cw, ch, 12 * s);
+
+      const buyText = this.add.text(w / 2, cy + ch / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(1);
+
+      const buyZone = this.add.zone(w / 2, cy + ch / 2, cw, ch)
+        .setInteractive({ useHandCursor: true }).setDepth(3);
+      buyZone.on('pointerover', () => {
+        buyBorder.clear();
+        buyBorder.lineStyle(3 * s, 0xffd700, 1);
+        buyBorder.strokeRoundedRect(cx, cy, cw, ch, 12 * s);
+        buyText.setColor('#ffffff');
+      });
+      buyZone.on('pointerout', () => {
+        buyBorder.clear();
+        buyBorder.lineStyle(2 * s, 0x8b6914, 0.6);
+        buyBorder.strokeRoundedRect(cx, cy, cw, ch, 12 * s);
+        buyText.setColor('#ffd700');
+      });
+      buyZone.on('pointerdown', () => {
+        if (buyLives()) {
+          this.scene.restart();
+        }
+      });
+    }
   }
 
   private createFloatingOrbs(w: number, h: number, s: number) {
@@ -206,19 +243,6 @@ export class MenuScene extends Phaser.Scene {
         delay: i * 600,
         ease: 'Sine.easeInOut',
       });
-    }
-  }
-
-  private getTotalCoins(): number {
-    try {
-      let total = 0;
-      for (let i = 1; i <= 15; i++) {
-        const stars = parseInt(localStorage.getItem(`level_${i}_stars`) || '0', 10);
-        total += stars;
-      }
-      return total;
-    } catch {
-      return 0;
     }
   }
 }

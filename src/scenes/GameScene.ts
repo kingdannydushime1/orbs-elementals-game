@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { sound } from '../utils/sound';
 import { LevelDef, levels, getLevel } from '../levels';
+import { deductLife, addCoins, COINS_PER_WIN, hasLives } from '../utils/save';
 
 const ELEMENT_COLORS: Record<number, number> = {
   0: 0xff5500, 1: 0x3399ff, 2: 0x996633, 3: 0x33cc33,
@@ -115,6 +116,11 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDragStart(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onDragMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onSwipeEnd(p));
+
+    if (!deductLife()) {
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.time.delayedCall(300, () => this.scene.start('MenuScene'));
+    }
   }
 
   private initObjectives() {
@@ -1100,6 +1106,7 @@ export class GameScene extends Phaser.Scene {
     if (won) {
       const stars = this.countStars(this.score);
       this.saveStars(stars);
+      addCoins(COINS_PER_WIN);
 
       const starStr = '\u2605'.repeat(stars) + '\u2606'.repeat(3 - stars);
       const starText = this.add.text(panelX, yOff + 86 * s, starStr, {
