@@ -30,8 +30,7 @@ export class GameScene extends Phaser.Scene {
   private isProcessing = false;
   private selected: { row: number; col: number } | null = null;
   private selGraphic!: Phaser.GameObjects.Graphics;
-  private dragStart: { row: number; col: number } | null = null;
-  private dragLine!: Phaser.GameObjects.Graphics;
+  private dragStart: { row: number; col: number; x: number; y: number } | null = null;
 
   private scoreText!: Phaser.GameObjects.Text;
   private coinIcon!: Phaser.GameObjects.Text;
@@ -113,8 +112,7 @@ export class GameScene extends Phaser.Scene {
     this.handleResize(this.cameras.main.width, this.cameras.main.height);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDragStart(p));
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onDragMove(p));
-    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onDragEnd(p));
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onSwipeEnd(p));
   }
 
   private initObjectives() {
@@ -695,39 +693,12 @@ export class GameScene extends Phaser.Scene {
     const { col, row } = this.cellAt(pointer.x, pointer.y);
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return;
     if (this.isCrate(row, col) || !this.grid[row][col]) return;
-
-    this.dragStart = { row, col };
+    this.dragStart = { row, col, x: pointer.x, y: pointer.y };
     this.selected = { row, col };
   }
 
-  private onDragMove(pointer: Phaser.Input.Pointer) {
+  private onSwipeEnd(pointer: Phaser.Input.Pointer) {
     if (!this.dragStart) return;
-    const s = this.sf;
-    const cx = this.cellX(this.dragStart.col);
-    const cy = this.cellY(this.dragStart.row);
-    const dx = pointer.x - cx;
-    const dy = pointer.y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxDist = this.cell / 2;
-
-    if (!this.dragLine) {
-      this.dragLine = this.add.graphics().setDepth(6);
-    }
-    this.dragLine.clear();
-
-    if (dist < 6 * s || dist > maxDist * 3) return;
-
-    const clip = Math.min(dist, maxDist);
-    const nx = (dx / dist) * clip;
-    const ny = (dy / dist) * clip;
-    this.dragLine.lineStyle(3 * s, 0xffd700, 0.6);
-    this.dragLine.lineBetween(cx, cy, cx + nx, cy + ny);
-  }
-
-  private onDragEnd(pointer: Phaser.Input.Pointer) {
-    if (this.dragLine) { this.dragLine.clear(); }
-    if (!this.dragStart) return;
-
     const start = this.dragStart;
     this.dragStart = null;
 
@@ -736,22 +707,23 @@ export class GameScene extends Phaser.Scene {
     if (this.isCrate(row, col) || !this.grid[row][col]) return;
 
     if (start.row === row && start.col === col) {
-      if (this.selected && this.selected.row === row && this.selected.col === col) {
-        this.selected = null;
-      } else {
-        this.selected = { row, col };
-      }
+      this.selected = this.selected ? null : { row, col };
       return;
     }
 
-    if (this.isAdjacent(start, { row, col })) {
+    if (!this.isAdjacent(start, { row, col })) {
+      this.selected = { row, col };
+      return;
+    }
+
+    if (this.isCrate(row, col) || this.isCrate(start.row, start.col)) {
       this.selected = null;
-      sound.playSwap();
-      this.attemptSwap(start.row, start.col, row, col);
       return;
     }
 
-    this.selected = { row, col };
+    this.selected = null;
+    sound.playSwap();
+    this.attemptSwap(start.row, start.col, row, col);
   }
 
   private cellAt(x: number, y: number) {
