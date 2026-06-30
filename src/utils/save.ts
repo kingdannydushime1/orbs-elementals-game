@@ -2,7 +2,7 @@ const COINS_KEY = 'save_coins';
 const LIVES_KEY = 'save_lives';
 const LAST_LEVEL_KEY = 'save_last_level';
 const MAX_LIVES = 3;
-const LIVES_COST = 300;
+const LIVES_COST = 10;
 const COINS_PER_WIN = 100;
 
 function starCoins(): number {
