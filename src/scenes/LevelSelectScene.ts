@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { levels, getTotalLevels } from '../levels';
-import { hasLives, saveLastLevel } from '../utils/save';
+import { hasLives, saveLastLevel, loadCoins } from '../utils/save';
 
 const ELEMENT_COLORS = [0xff6b35, 0x3a9bff, 0x8b6b3a, 0x44cc44];
 const ELEMENT_GLOWS = [0xff8844, 0x66bbff, 0xaa8855, 0x66ee66];
@@ -74,7 +74,7 @@ export class LevelSelectScene extends Phaser.Scene {
       this.time.delayedCall(300, () => this.scene.start('MenuScene'));
     });
 
-    const totalCoins = this.getTotalCoins();
+    const totalCoins = loadCoins();
     if (totalCoins > 0) {
       const coinPanelW = 150 * s;
       const coinPanelH = 42 * s;
@@ -282,19 +282,6 @@ export class LevelSelectScene extends Phaser.Scene {
     try {
       const data = localStorage.getItem(`level_${levelId}_stars`);
       return data ? parseInt(data, 10) : 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  private getTotalCoins(): number {
-    try {
-      let total = 0;
-      for (let i = 1; i <= 15; i++) {
-        const stars = parseInt(localStorage.getItem(`level_${i}_stars`) || '0', 10);
-        total += stars;
-      }
-      return total;
     } catch {
       return 0;
     }

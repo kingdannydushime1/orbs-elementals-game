@@ -153,6 +153,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private showBuyLivesModal(w: number, h: number, s: number) {
+    this.cameras.main.resetFX();
+
     const overlay = this.add.graphics().setDepth(100);
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, w, h);

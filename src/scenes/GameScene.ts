@@ -104,8 +104,7 @@ export class GameScene extends Phaser.Scene {
     this.selGraphic = this.add.graphics().setDepth(5);
 
     if (!deductLife()) {
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.time.delayedCall(300, () => this.scene.start('MenuScene'));
+      this.time.delayedCall(100, () => this.scene.start('MenuScene'));
       return;
     }
 
