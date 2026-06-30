@@ -136,7 +136,7 @@ export class MenuScene extends Phaser.Scene {
 
     makeBtn('PLAY', h * 0.53, 800, () => {
       if (!hasLives()) {
-        this.scene.restart();
+        this.showBuyLivesModal(w, h, s);
         return;
       }
       const levelId = loadLastLevel();
@@ -149,6 +149,93 @@ export class MenuScene extends Phaser.Scene {
 
     this.scale.on('resize', () => {
       this.scene.restart();
+    });
+  }
+
+  private showBuyLivesModal(w: number, h: number, s: number) {
+    const overlay = this.add.graphics().setDepth(100);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, w, h);
+
+    const panelW = Math.min(320 * s, w * 0.85);
+    const panelH = 220 * s;
+    const px = w / 2;
+    const py = h / 2;
+
+    const panel = this.add.image(px, py, 'wood_panel').setDepth(101);
+    panel.setDisplaySize(panelW, panelH);
+    const border = this.add.graphics().setDepth(101);
+    border.lineStyle(3 * s, 0xffd700, 0.7);
+    border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
+
+    const heartsStr = '\u2764'.repeat(3);
+    const title = this.add.text(px, py - 50 * s, heartsStr, {
+      fontSize: `${Math.round(40 * s)}px`,
+      color: '#ff4d6d',
+    }).setOrigin(0.5).setDepth(102);
+
+    const label = this.add.text(px, py - 10 * s, '3 LIVES', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(24 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(102);
+
+    const btnW = Math.min(240 * s, panelW - 40 * s);
+    const btnH = 56 * s;
+    const btnX = px - btnW / 2;
+    const btnY = py + 20 * s;
+
+    const buyPanel = this.add.image(px, btnY + btnH / 2, 'wood_panel').setDepth(102);
+    buyPanel.setDisplaySize(btnW, btnH);
+    const buyBorder = this.add.graphics().setDepth(102);
+    buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
+    buyBorder.strokeRoundedRect(btnX, btnY, btnW, btnH, 12 * s);
+
+    const buyText = this.add.text(px, btnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(17 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(103);
+
+    const buyZone = this.add.zone(px, btnY + btnH / 2, btnW, btnH)
+      .setInteractive({ useHandCursor: true }).setDepth(104);
+    buyZone.on('pointerover', () => {
+      buyBorder.clear();
+      buyBorder.lineStyle(3 * s, 0xffd700, 1);
+      buyBorder.strokeRoundedRect(btnX, btnY, btnW, btnH, 12 * s);
+      buyText.setColor('#ffffff');
+    });
+    buyZone.on('pointerout', () => {
+      buyBorder.clear();
+      buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
+      buyBorder.strokeRoundedRect(btnX, btnY, btnW, btnH, 12 * s);
+      buyText.setColor('#ffd700');
+    });
+    buyZone.on('pointerdown', () => {
+      if (buyLives()) {
+        overlay.destroy();
+        panel.destroy();
+        border.destroy();
+        title.destroy();
+        label.destroy();
+        buyPanel.destroy();
+        buyBorder.destroy();
+        buyText.destroy();
+        buyZone.destroy();
+        this.scene.restart();
+      }
+    });
+
+    const cancelText = this.add.text(px, py + 74 * s, 'CANCEL', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa',
+    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    cancelText.on('pointerdown', () => {
+      overlay.destroy();
+      panel.destroy();
+      border.destroy();
+      title.destroy();
+      label.destroy();
+      buyPanel.destroy();
+      buyBorder.destroy();
+      buyText.destroy();
+      buyZone.destroy();
+      cancelText.destroy();
     });
   }
 
