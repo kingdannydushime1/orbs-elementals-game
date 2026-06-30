@@ -159,8 +159,8 @@ export class MenuScene extends Phaser.Scene {
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, w, h);
 
-    const panelW = Math.min(320 * s, w * 0.85);
-    const panelH = 220 * s;
+    const panelW = Math.min(300 * s, w * 0.85);
+    const panelH = 290 * s;
     const px = w / 2;
     const py = h / 2;
 
@@ -171,42 +171,56 @@ export class MenuScene extends Phaser.Scene {
     border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
 
     const heartsStr = '\u2764'.repeat(3);
-    const title = this.add.text(px, py - 50 * s, heartsStr, {
-      fontSize: `${Math.round(40 * s)}px`,
+    const title = this.add.text(px, py - 80 * s, heartsStr, {
+      fontSize: `${Math.round(44 * s)}px`,
       color: '#ff4d6d',
     }).setOrigin(0.5).setDepth(102);
 
-    const label = this.add.text(px, py - 10 * s, '3 LIVES', {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(24 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+    const label = this.add.text(px, py - 42 * s, '3 LIVES', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(102);
 
-    const btnW = Math.min(240 * s, panelW - 40 * s);
-    const btnH = 56 * s;
-    const btnX = px - btnW / 2;
-    const btnY = py + 20 * s;
+    const divY = py - 16 * s;
+    const divider = this.add.graphics().setDepth(102);
+    divider.lineStyle(1 * s, 0x8b6914, 0.4);
+    divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
 
-    const buyPanel = this.add.image(px, btnY + btnH / 2, 'wood_panel').setDepth(102);
+    const coinIcon = this.add.text(px, py + 4 * s, '\u{1FA99}', {
+      fontSize: `${Math.round(22 * s)}px`,
+    }).setOrigin(0.5).setDepth(102);
+
+    const infoText = this.add.text(px, py + 28 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
+    }).setOrigin(0.5).setDepth(102);
+
+    const btnW = Math.min(220 * s, panelW - 50 * s);
+    const btnH = 52 * s;
+
+    const buyBtnX = px - btnW / 2;
+    const buyBtnY = py + 54 * s;
+
+    const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(102);
     buyPanel.setDisplaySize(btnW, btnH);
     const buyBorder = this.add.graphics().setDepth(102);
     buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
-    buyBorder.strokeRoundedRect(btnX, btnY, btnW, btnH, 12 * s);
+    buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
 
-    const buyText = this.add.text(px, btnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(17 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(103);
 
-    const buyZone = this.add.zone(px, btnY + btnH / 2, btnW, btnH)
+    const buyZone = this.add.zone(px, buyBtnY + btnH / 2, btnW, btnH)
       .setInteractive({ useHandCursor: true }).setDepth(104);
     buyZone.on('pointerover', () => {
       buyBorder.clear();
       buyBorder.lineStyle(3 * s, 0xffd700, 1);
-      buyBorder.strokeRoundedRect(btnX, btnY, btnW, btnH, 12 * s);
+      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
       buyText.setColor('#ffffff');
     });
     buyZone.on('pointerout', () => {
       buyBorder.clear();
       buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
-      buyBorder.strokeRoundedRect(btnX, btnY, btnW, btnH, 12 * s);
+      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
       buyText.setColor('#ffd700');
     });
     buyZone.on('pointerdown', () => {
@@ -216,6 +230,9 @@ export class MenuScene extends Phaser.Scene {
         border.destroy();
         title.destroy();
         label.destroy();
+        divider.destroy();
+        coinIcon.destroy();
+        infoText.destroy();
         buyPanel.destroy();
         buyBorder.destroy();
         buyText.destroy();
@@ -224,20 +241,52 @@ export class MenuScene extends Phaser.Scene {
       }
     });
 
-    const cancelText = this.add.text(px, py + 74 * s, 'CANCEL', {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa',
-    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
-    cancelText.on('pointerdown', () => {
+    const cancelBtnW = Math.min(130 * s, panelW * 0.45);
+    const cancelBtnH = 38 * s;
+    const cancelBtnX = px - cancelBtnW / 2;
+    const cancelBtnY = buyBtnY + btnH + 16 * s;
+
+    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(102);
+    cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
+    const cancelBorder = this.add.graphics().setDepth(102);
+    cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+
+    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CANCEL', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(103);
+
+    const cancelZone = this.add.zone(px, cancelBtnY + cancelBtnH / 2, cancelBtnW, cancelBtnH)
+      .setInteractive({ useHandCursor: true }).setDepth(104);
+    cancelZone.on('pointerover', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(2 * s, 0xa78bfa, 0.8);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#ffffff');
+    });
+    cancelZone.on('pointerout', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#a78bfa');
+    });
+    cancelZone.on('pointerdown', () => {
       overlay.destroy();
       panel.destroy();
       border.destroy();
       title.destroy();
       label.destroy();
+      divider.destroy();
+      coinIcon.destroy();
+      infoText.destroy();
       buyPanel.destroy();
       buyBorder.destroy();
       buyText.destroy();
       buyZone.destroy();
+      cancelPanel.destroy();
+      cancelBorder.destroy();
       cancelText.destroy();
+      cancelZone.destroy();
     });
   }
 
