@@ -72,9 +72,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const scrollContainer = this.add.container(0, 0).setDepth(1);
     scrollContainer.add(this.add.graphics());
     this.drawPath(pathPoints, s, scrollContainer);
-    const nodesGfx = this.add.graphics();
-    scrollContainer.add(nodesGfx);
-    this.drawNodes(pathPoints, total, s, nodeR, nodesGfx, scrollContainer);
+    this.drawNodes(pathPoints, total, s, nodeR, scrollContainer);
 
     const maskShape = this.add.graphics();
     maskShape.fillStyle(0xffffff);
@@ -104,11 +102,12 @@ export class LevelSelectScene extends Phaser.Scene {
       this.data.set('scrollStartY', undefined);
     });
 
-    const backBtn = this.add.text(18 * s, h - 30 * s, '\u2190 BACK', {
+    const backBtn = this.add.text(20 * s, h - 36 * s, '\u2190 BACK', {
       fontFamily: 'Georgia, serif',
-      fontSize: `${Math.round(15 * s)}px`,
+      fontSize: `${Math.round(22 * s)}px`,
       color: '#8b7aaa',
       fontStyle: 'bold',
+      padding: { x: 16 * s, y: 10 * s },
     }).setOrigin(0, 0.5).setDepth(2).setInteractive({ useHandCursor: true });
 
     backBtn.on('pointerover', () => this.tweens.add({ targets: backBtn, color: { value: '#ffd700' }, duration: 150 }));
@@ -178,7 +177,7 @@ export class LevelSelectScene extends Phaser.Scene {
     }
   }
 
-  private drawNodes(points: { x: number; y: number }[], total: number, s: number, nodeR: number, nodeGfx: Phaser.GameObjects.Graphics, scrollContainer: Phaser.GameObjects.Container) {
+  private drawNodes(points: { x: number; y: number }[], total: number, s: number, nodeR: number, scrollContainer: Phaser.GameObjects.Container) {
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
     for (let i = 0; i < total; i++) {
@@ -194,22 +193,36 @@ export class LevelSelectScene extends Phaser.Scene {
       const elementColor = ELEMENT_COLORS[elementIdx];
       const elementGlow = ELEMENT_GLOWS[elementIdx];
 
-      if (unlocked) {
-        nodeGfx.fillStyle(0x1a1018, 0.9);
-        nodeGfx.fillCircle(x, y, nodeR + 4 * s);
-        nodeGfx.fillStyle(0x2d1a3a, 1);
-        nodeGfx.fillCircle(x, y, nodeR);
-        nodeGfx.lineStyle(2.5 * s, elementColor, 0.8);
-        nodeGfx.strokeCircle(x, y, nodeR + 1 * s);
-        nodeGfx.lineStyle(1 * s, 0xffd700, 0.5);
-        nodeGfx.strokeCircle(x, y, nodeR - 2 * s);
+      const drawCircle = (g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, hover: boolean) => {
+        g.clear();
+        if (unlocked) {
+          g.fillStyle(0x1a1018, 0.9);
+          g.fillCircle(cx, cy, r + 4 * s);
+          g.fillStyle(hover ? 0x3d254a : 0x2d1a3a, 1);
+          g.fillCircle(cx, cy, r);
+          g.lineStyle(hover ? 3 * s : 2.5 * s, hover ? elementColor : elementColor, hover ? 1 : 0.8);
+          g.strokeCircle(cx, cy, r + 1 * s);
+          g.lineStyle(hover ? 1.5 * s : 1 * s, 0xffd700, hover ? 0.9 : 0.5);
+          g.strokeCircle(cx, cy, r - 2 * s);
+        } else {
+          g.fillStyle(0x0a0815, 0.7);
+          g.fillCircle(cx, cy, r);
+          g.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
+          g.strokeCircle(cx, cy, r);
+        }
+      };
 
-        const glow = this.add.graphics().setDepth(-0.2);
+      const myGfx = this.add.graphics().setDepth(0);
+      drawCircle(myGfx, 0, 0, nodeR, false);
+      nodeContainer.add(myGfx);
+
+      if (unlocked) {
+        const glow = this.add.graphics().setDepth(-1);
         glow.fillStyle(elementGlow, 0.12);
         glow.fillCircle(0, 0, nodeR + 14 * s);
         nodeContainer.addAt(glow, 0);
 
-        const pulse = this.add.graphics().setDepth(-0.3);
+        const pulse = this.add.graphics().setDepth(-1);
         pulse.lineStyle(1.5 * s, elementColor, 0.25);
         pulse.strokeCircle(0, 0, nodeR + 6 * s);
         nodeContainer.addAt(pulse, 0);
@@ -222,11 +235,6 @@ export class LevelSelectScene extends Phaser.Scene {
           ease: 'Quad.easeOut',
         });
       } else {
-        nodeGfx.fillStyle(0x0a0815, 0.7);
-        nodeGfx.fillCircle(x, y, nodeR);
-        nodeGfx.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
-        nodeGfx.strokeCircle(x, y, nodeR);
-
         const lock = this.add.text(0, -nodeR - 8 * s, '\u{1F512}', {
           fontSize: `${Math.round(16 * s)}px`,
         }).setOrigin(0.5).setDepth(2);
@@ -262,62 +270,16 @@ export class LevelSelectScene extends Phaser.Scene {
         nodeContainer.add(btnZone);
 
         btnZone.on('pointerover', () => {
-          nodeGfx.clear();
-          for (let j = 0; j < total; j++) {
-            const p = points[j];
-            const lv = levels[j];
-            const ulck = j === 0 || this.getStarsForLevel(levels[j - 1].id) > 0;
-            const eIdx = lv.id % 4;
-            const eCol = ELEMENT_COLORS[eIdx];
-            const ua = ulck ? 1 : 0.7;
-            if (ulck) {
-              nodeGfx.fillStyle(0x1a1018, 0.9);
-              nodeGfx.fillCircle(p.x, p.y, nodeR + 4 * s);
-              nodeGfx.fillStyle(j === i ? 0x3d254a : 0x2d1a3a, ua);
-              nodeGfx.fillCircle(p.x, p.y, nodeR);
-              nodeGfx.lineStyle(j === i ? 3 * s : 2.5 * s, j === i ? elementColor : eCol, j === i ? 1 : 0.8);
-              nodeGfx.strokeCircle(p.x, p.y, nodeR + 1 * s);
-              nodeGfx.lineStyle(j === i ? 1.5 * s : 1 * s, 0xffd700, j === i ? 0.9 : 0.5);
-              nodeGfx.strokeCircle(p.x, p.y, nodeR - 2 * s);
-            } else {
-              nodeGfx.fillStyle(0x0a0815, 0.7);
-              nodeGfx.fillCircle(p.x, p.y, nodeR);
-              nodeGfx.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
-              nodeGfx.strokeCircle(p.x, p.y, nodeR);
-            }
-          }
-          this.tweens.add({ targets: nodeContainer, scaleX: 1.08, scaleY: 1.08, duration: 150, ease: 'Back.easeOut' });
+          drawCircle(myGfx, 0, 0, nodeR, true);
+          this.tweens.add({ targets: nodeContainer, scaleX: 1.08, scaleY: 1.08, duration: 120, ease: 'Back.easeOut' });
         });
 
         btnZone.on('pointerout', () => {
-          nodeGfx.clear();
-          for (let j = 0; j < total; j++) {
-            const p = points[j];
-            const lv = levels[j];
-            const ulck = j === 0 || this.getStarsForLevel(levels[j - 1].id) > 0;
-            const eIdx = lv.id % 4;
-            const eCol = ELEMENT_COLORS[eIdx];
-            const ua = ulck ? 1 : 0.7;
-            if (ulck) {
-              nodeGfx.fillStyle(0x1a1018, 0.9);
-              nodeGfx.fillCircle(p.x, p.y, nodeR + 4 * s);
-              nodeGfx.fillStyle(0x2d1a3a, ua);
-              nodeGfx.fillCircle(p.x, p.y, nodeR);
-              nodeGfx.lineStyle(2.5 * s, eCol, 0.8);
-              nodeGfx.strokeCircle(p.x, p.y, nodeR + 1 * s);
-              nodeGfx.lineStyle(1 * s, 0xffd700, 0.5);
-              nodeGfx.strokeCircle(p.x, p.y, nodeR - 2 * s);
-            } else {
-              nodeGfx.fillStyle(0x0a0815, 0.7);
-              nodeGfx.fillCircle(p.x, p.y, nodeR);
-              nodeGfx.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
-              nodeGfx.strokeCircle(p.x, p.y, nodeR);
-            }
-          }
-          this.tweens.add({ targets: nodeContainer, scaleX: 1, scaleY: 1, duration: 150, ease: 'Quad.easeOut' });
+          drawCircle(myGfx, 0, 0, nodeR, false);
+          this.tweens.add({ targets: nodeContainer, scaleX: 1, scaleY: 1, duration: 120, ease: 'Quad.easeOut' });
         });
 
-        btnZone.on('pointerup', () => {
+        btnZone.on('pointerdown', () => {
           if (this.data.get('dragging') || (this.data.get('dragDist') || 0) > 8) return;
           if (!hasLives()) {
             this.pendingLevelId = level.id;
@@ -355,57 +317,70 @@ export class LevelSelectScene extends Phaser.Scene {
   private showBuyLivesModal(w: number, h: number, s: number) {
     const overlay = this.add.graphics().setDepth(100);
     overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, w, h);
+    overlay.fillRect(0, 0, w, h).setInteractive({ useHandCursor: false });
+    overlay.on('pointerdown', () => { overlay.destroy(); panelContainer.destroy(); });
 
     const panelW = Math.min(300 * s, w * 0.85);
-    const panelH = 350 * s;
+    const panelH = 420 * s;
     const px = w / 2;
     const py = h / 2;
 
-    const panel = this.add.image(px, py, 'wood_panel').setDepth(101);
-    panel.setDisplaySize(panelW, panelH);
-    const border = this.add.graphics().setDepth(101);
-    border.lineStyle(3 * s, 0xffd700, 0.7);
-    border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
+    const panelContainer = this.add.container(0, 0).setDepth(101);
+
+    const panelImg = this.add.image(px, py, 'wood_panel').setDepth(0);
+    panelImg.setDisplaySize(panelW, panelH);
+    panelContainer.add(panelImg);
+
+    const panelBorder = this.add.graphics().setDepth(0);
+    panelBorder.lineStyle(3 * s, 0xffd700, 0.7);
+    panelBorder.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
+    panelContainer.add(panelBorder);
 
     const heartsStr = '\u2764'.repeat(3);
-    const title = this.add.text(px, py - 108 * s, heartsStr, {
-      fontSize: `${Math.round(44 * s)}px`,
-      color: '#ff4d6d',
-    }).setOrigin(0.5).setDepth(102);
+    const title = this.add.text(px, py - 140 * s, heartsStr, {
+      fontSize: `${Math.round(44 * s)}px`, color: '#ff4d6d',
+    }).setOrigin(0.5).setDepth(1);
+    panelContainer.add(title);
 
-    const label = this.add.text(px, py - 70 * s, '3 LIVES', {
+    const label = this.add.text(px, py - 102 * s, '3 LIVES', {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(102);
+    }).setOrigin(0.5).setDepth(1);
+    panelContainer.add(label);
 
-    const divY = py - 44 * s;
-    const divider = this.add.graphics().setDepth(102);
+    const divY = py - 76 * s;
+    const divider = this.add.graphics().setDepth(1);
     divider.lineStyle(1 * s, 0x8b6914, 0.4);
     divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
+    panelContainer.add(divider);
 
-    const coinIcon = this.add.text(px, py - 20 * s, '\u{1FA99}', {
+    const coinIcon = this.add.text(px, py - 50 * s, '\u{1FA99}', {
       fontSize: `${Math.round(22 * s)}px`,
-    }).setOrigin(0.5).setDepth(102);
+    }).setOrigin(0.5).setDepth(1);
+    panelContainer.add(coinIcon);
 
-    const infoText = this.add.text(px, py + 6 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+    const infoText = this.add.text(px, py - 22 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
-    }).setOrigin(0.5).setDepth(102);
+    }).setOrigin(0.5).setDepth(1);
+    panelContainer.add(infoText);
 
     const btnW = Math.min(220 * s, panelW - 50 * s);
     const btnH = 52 * s;
-
     const buyBtnX = px - btnW / 2;
-    const buyBtnY = py + 34 * s;
+    const buyBtnY = py + 6 * s;
 
-    const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(102);
+    const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(1);
     buyPanel.setDisplaySize(btnW, btnH);
-    const buyBorder = this.add.graphics().setDepth(102);
+    panelContainer.add(buyPanel);
+
+    const buyBorder = this.add.graphics().setDepth(1);
     buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
     buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+    panelContainer.add(buyBorder);
 
     const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(2).setInteractive({ useHandCursor: true });
+    panelContainer.add(buyText);
     buyText.on('pointerover', () => {
       buyBorder.clear();
       buyBorder.lineStyle(3 * s, 0xffd700, 1);
@@ -420,11 +395,7 @@ export class LevelSelectScene extends Phaser.Scene {
     });
     buyText.on('pointerdown', () => {
       if (!buyLives()) return;
-      overlay.destroy(); panel.destroy(); border.destroy();
-      title.destroy(); label.destroy(); divider.destroy();
-      coinIcon.destroy(); infoText.destroy();
-      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
-
+      overlay.destroy(); panelContainer.destroy();
       const lid = this.pendingLevelId;
       saveLastLevel(lid);
       this.cameras.main.fadeOut(250, 0, 0, 0);
@@ -433,38 +404,38 @@ export class LevelSelectScene extends Phaser.Scene {
       });
     });
 
-    const cancelBtnW = Math.min(130 * s, panelW * 0.45);
-    const cancelBtnH = 38 * s;
+    const cancelBtnW = Math.min(160 * s, panelW * 0.5);
+    const cancelBtnH = 44 * s;
     const cancelBtnX = px - cancelBtnW / 2;
-    const cancelBtnY = buyBtnY + btnH + 16 * s;
+    const cancelBtnY = buyBtnY + btnH + 20 * s;
 
-    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(102);
+    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(1);
     cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
-    const cancelBorder = this.add.graphics().setDepth(102);
-    cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
-    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+    panelContainer.add(cancelPanel);
 
-    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CANCEL', {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    const cancelBorder = this.add.graphics().setDepth(1);
+    cancelBorder.lineStyle(2 * s, 0x4a3a6a, 0.6);
+    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 12 * s);
+    panelContainer.add(cancelBorder);
+
+    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CLOSE', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(2).setInteractive({ useHandCursor: true });
+    panelContainer.add(cancelText);
     cancelText.on('pointerover', () => {
       cancelBorder.clear();
-      cancelBorder.lineStyle(2 * s, 0xa78bfa, 0.8);
-      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelBorder.lineStyle(2.5 * s, 0xa78bfa, 0.9);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 12 * s);
       cancelText.setColor('#ffffff');
     });
     cancelText.on('pointerout', () => {
       cancelBorder.clear();
-      cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
-      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelBorder.lineStyle(2 * s, 0x4a3a6a, 0.6);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 12 * s);
       cancelText.setColor('#a78bfa');
     });
     cancelText.on('pointerdown', () => {
-      overlay.destroy(); panel.destroy(); border.destroy();
-      title.destroy(); label.destroy(); divider.destroy();
-      coinIcon.destroy(); infoText.destroy();
-      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
-      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+      overlay.destroy(); panelContainer.destroy();
     });
   }
 }
