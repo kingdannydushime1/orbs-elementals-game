@@ -207,38 +207,28 @@ export class MenuScene extends Phaser.Scene {
 
     const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(103);
-
-    const buyZone = this.add.zone(px, buyBtnY + btnH / 2, btnW, btnH)
-      .setInteractive({ useHandCursor: true }).setDepth(104);
-    buyZone.on('pointerover', () => {
+    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    buyText.on('pointerover', () => {
       buyBorder.clear();
       buyBorder.lineStyle(3 * s, 0xffd700, 1);
       buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
       buyText.setColor('#ffffff');
     });
-    buyZone.on('pointerout', () => {
+    buyText.on('pointerout', () => {
       buyBorder.clear();
       buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
       buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
       buyText.setColor('#ffd700');
     });
-    buyZone.on('pointerdown', () => {
-      if (buyLives()) {
-        overlay.destroy();
-        panel.destroy();
-        border.destroy();
-        title.destroy();
-        label.destroy();
-        divider.destroy();
-        coinIcon.destroy();
-        infoText.destroy();
-        buyPanel.destroy();
-        buyBorder.destroy();
-        buyText.destroy();
-        buyZone.destroy();
-        this.scene.restart();
-      }
+    buyText.on('pointerdown', () => {
+      if (!buyLives()) return;
+      overlay.destroy(); panel.destroy(); border.destroy();
+      title.destroy(); label.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
+      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+      const levelId = loadLastLevel();
+      this.scene.start('GameScene', { levelId });
     });
 
     const cancelBtnW = Math.min(130 * s, panelW * 0.45);
@@ -254,23 +244,20 @@ export class MenuScene extends Phaser.Scene {
 
     const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CANCEL', {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(103);
-
-    const cancelZone = this.add.zone(px, cancelBtnY + cancelBtnH / 2, cancelBtnW, cancelBtnH)
-      .setInteractive({ useHandCursor: true }).setDepth(104);
-    cancelZone.on('pointerover', () => {
+    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    cancelText.on('pointerover', () => {
       cancelBorder.clear();
       cancelBorder.lineStyle(2 * s, 0xa78bfa, 0.8);
       cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
       cancelText.setColor('#ffffff');
     });
-    cancelZone.on('pointerout', () => {
+    cancelText.on('pointerout', () => {
       cancelBorder.clear();
       cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
       cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
       cancelText.setColor('#a78bfa');
     });
-    cancelZone.on('pointerdown', () => {
+    cancelText.on('pointerdown', () => {
       overlay.destroy();
       panel.destroy();
       border.destroy();
@@ -282,11 +269,9 @@ export class MenuScene extends Phaser.Scene {
       buyPanel.destroy();
       buyBorder.destroy();
       buyText.destroy();
-      buyZone.destroy();
       cancelPanel.destroy();
       cancelBorder.destroy();
       cancelText.destroy();
-      cancelZone.destroy();
     });
   }
 
@@ -358,7 +343,8 @@ export class MenuScene extends Phaser.Scene {
       });
       buyZone.on('pointerdown', () => {
         if (buyLives()) {
-          this.scene.restart();
+          const levelId = loadLastLevel();
+          this.scene.start('GameScene', { levelId });
         }
       });
     }

@@ -1,4 +1,4 @@
-export type ObjectiveType = 'score' | 'orbs_matched';
+export type ObjectiveType = 'score' | 'orbs_matched' | 'destroy_ice' | 'destroy_crates';
 
 export interface LevelObjective {
   type: ObjectiveType;
@@ -23,7 +23,8 @@ export interface LevelDef {
   name: string;
   rows: number;
   cols: number;
-  time: 10, // number;
+  time: number;
+  moves?: number;
   orbTypes: number;
   objectives: LevelObjective[];
   crates: CrateDef[];
@@ -73,30 +74,32 @@ export const levels: LevelDef[] = [
     name: 'Crate Buster',
     rows: 8,
     cols: 8,
-    time: 10, // 60,
+    moves: 20,
+    time: 999,
     orbTypes: 4,
-    objectives: [{ type: 'score', target: 600 }],
+    objectives: [{ type: 'destroy_crates', target: 4 }],
     crates: [
       { row: 2, col: 2 }, { row: 2, col: 5 },
       { row: 5, col: 2 }, { row: 5, col: 5 },
     ],
     ice: [],
-    starScore: [600, 1200, 2000],
+    starScore: [4, 4, 4],
   },
   {
     id: 5,
     name: 'Frozen Orbs',
     rows: 8,
     cols: 8,
-    time: 10, // 75,
+    moves: 25,
+    time: 999,
     orbTypes: 4,
-    objectives: [{ type: 'score', target: 1000 }],
+    objectives: [{ type: 'destroy_ice', target: 4 }],
     crates: [],
     ice: [
       { row: 1, col: 1, layers: 2 }, { row: 1, col: 6, layers: 2 },
       { row: 6, col: 1, layers: 2 }, { row: 6, col: 6, layers: 2 },
     ],
-    starScore: [1000, 1800, 2800],
+    starScore: [4, 4, 4],
   },
   {
     id: 6,

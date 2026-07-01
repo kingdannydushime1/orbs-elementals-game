@@ -1,23 +1,34 @@
 import Phaser from 'phaser';
 import { sound } from '../utils/sound';
 import { LevelDef, levels, getLevel } from '../levels';
-import { deductLife, addCoins, COINS_PER_WIN, hasLives, loadCoins, loadLives, MAX_LIVES } from '../utils/save';
+import { deductLife, addCoins, COINS_PER_WIN, hasLives, loadCoins, loadLives, MAX_LIVES, saveLives, buyLives, LIVES_COST, saveLastLevel, loadLastLevel } from '../utils/save';
 
 const ELEMENT_COLORS: Record<number, number> = {
   0: 0xff5500, 1: 0x3399ff, 2: 0x996633, 3: 0x33cc33,
 };
 
+const enum SpecialType {
+  None = 0,
+  StripedH = 1,
+  StripedV = 2,
+  Bomb = 3,
+  ColorBomb = 4,
+}
+
 interface Orb {
   type: number;
+  special: SpecialType;
   row: number;
   col: number;
   sprite: Phaser.GameObjects.Sprite | null;
   iceLayers: number;
   iceSprite: Phaser.GameObjects.Graphics | null;
+  specialOverlay: Phaser.GameObjects.Graphics | null;
+  specialText: Phaser.GameObjects.Text | null;
 }
 
 interface ObjectiveState {
-  type: 'score' | 'orbs_matched';
+  type: 'score' | 'orbs_matched' | 'destroy_ice' | 'destroy_crates';
   target: number;
   current: number;
   element?: number;
@@ -27,6 +38,8 @@ export class GameScene extends Phaser.Scene {
   private grid: (Orb | null)[][] = [];
   private score = 0;
   private timeLeft = 60;
+  private movesLeft = 0;
+  private isMovesMode = false;
   private comboCount = 0;
   private isProcessing = false;
   private selected: { row: number; col: number } | null = null;
@@ -38,6 +51,7 @@ export class GameScene extends Phaser.Scene {
   private coinIcon!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private timerTextShadow!: Phaser.GameObjects.Text;
+  private movesText!: Phaser.GameObjects.Text;
   private mapBtn!: Phaser.GameObjects.Text;
   private muteBtn!: Phaser.GameObjects.Text;
   private targetTitle!: Phaser.GameObjects.Text;
@@ -71,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   private levelComplete = false;
 
   private crates: Map<string, { hits: number; graphic: Phaser.GameObjects.Graphics }> = new Map();
+  private aliveCrates: Set<string> = new Set();
 
   constructor() {
     super({ key: 'GameScene' });
@@ -85,7 +100,9 @@ export class GameScene extends Phaser.Scene {
     this.levelDef = def;
     this.rows = def.rows;
     this.cols = def.cols;
-    this.timeLeft = def.time;
+    this.isMovesMode = 'moves' in def && (def as any).moves > 0;
+    this.movesLeft = this.isMovesMode ? (def as any).moves : 0;
+    this.timeLeft = this.isMovesMode ? 9999 : def.time;
     this.score = 0;
     this.comboCount = 0;
     this.isProcessing = false;
@@ -96,7 +113,9 @@ export class GameScene extends Phaser.Scene {
     this.grid = [];
     this.objectives = [];
     this.crates.clear();
+    this.aliveCrates.clear();
     this.objectivesTexts = [];
+    this.objectiveIcons = [];
   }
 
   create() {
@@ -123,20 +142,20 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onDragStart(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onDragMove(p));
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.onSwipeEnd(p));
-
-    if (!deductLife()) {
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.time.delayedCall(300, () => this.scene.start('MenuScene'));
-    }
   }
 
   private initObjectives() {
-    this.objectives = this.levelDef.objectives.map(o => ({
-      type: o.type,
-      target: o.target,
-      current: 0,
-      element: o.element,
-    }));
+    this.objectives = this.levelDef.objectives.map(o => {
+      const base = {
+        target: o.target,
+        current: 0,
+        element: o.element,
+      };
+      if (o.type === 'destroy_ice') return { ...base, type: 'destroy_ice' as const };
+      if (o.type === 'destroy_crates') return { ...base, type: 'destroy_crates' as const };
+      if (o.type === 'orbs_matched') return { ...base, type: 'orbs_matched' as const };
+      return { ...base, type: 'score' as const };
+    });
   }
 
   private recalcLayout() {
@@ -215,10 +234,15 @@ export class GameScene extends Phaser.Scene {
     this.scoreText?.setFontSize(`${Math.round(30 * s)}px`);
     this.scoreText?.setOrigin(0, 0.5);
 
-    this.timerText?.setPosition(panelX + panelW - 12 * s, row1y);
-    this.timerText?.setFontSize(`${Math.round(30 * s)}px`);
-    this.timerTextShadow?.setPosition(panelX + panelW - 10 * s, row1y + 2 * s);
-    this.timerTextShadow?.setFontSize(`${Math.round(30 * s)}px`);
+    if (this.isMovesMode) {
+      this.movesText?.setPosition(panelX + panelW - 12 * s, row1y);
+      this.movesText?.setFontSize(`${Math.round(24 * s)}px`);
+    } else {
+      this.timerText?.setPosition(panelX + panelW - 12 * s, row1y);
+      this.timerText?.setFontSize(`${Math.round(30 * s)}px`);
+      this.timerTextShadow?.setPosition(panelX + panelW - 10 * s, row1y + 2 * s);
+      this.timerTextShadow?.setFontSize(`${Math.round(30 * s)}px`);
+    }
 
     this.muteBtn?.setPosition(panelX + panelW - 12 * s - 90 * s - 20 * s, row2y);
     this.muteBtn?.setFontSize(`${Math.round(28 * s)}px`);
@@ -253,7 +277,9 @@ export class GameScene extends Phaser.Scene {
       if (obj?.type === 'score') {
         (icon as unknown as Phaser.GameObjects.Text).setPosition(panelX + 54 * s, oy);
         (icon as unknown as Phaser.GameObjects.Text).setFontSize(`${Math.round(24 * s)}px`);
-      } else {
+      } else if (obj?.type === 'destroy_ice' || obj?.type === 'destroy_crates') {
+        // graphics objects don't need repositioning - they get redrawn via redrawIceOverlays/redrawCrates
+      } else if (obj?.element !== undefined) {
         icon.setPosition(panelX + 56 * s, oy);
         icon.setDisplaySize(30 * s, 30 * s);
       }
@@ -295,12 +321,18 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(30 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(3);
 
-    this.timerText = this.add.text(panelX + panelW - 12 * s, row1y, String(Math.ceil(this.timeLeft)), {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(30 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
-    }).setOrigin(1, 0.5).setDepth(3);
-    this.timerTextShadow = this.add.text(panelX + panelW - 10 * s, row1y + 2 * s, String(Math.ceil(this.timeLeft)), {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(30 * s)}px`, color: '#0d0815', fontStyle: 'bold',
-    }).setOrigin(1, 0.5).setDepth(2).setAlpha(0.4);
+    if (this.isMovesMode) {
+      this.movesText = this.add.text(panelX + panelW - 12 * s, row1y, `Moves: ${this.movesLeft}`, {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(24 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+      }).setOrigin(1, 0.5).setDepth(3);
+    } else {
+      this.timerText = this.add.text(panelX + panelW - 12 * s, row1y, String(Math.ceil(this.timeLeft)), {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(30 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+      }).setOrigin(1, 0.5).setDepth(3);
+      this.timerTextShadow = this.add.text(panelX + panelW - 10 * s, row1y + 2 * s, String(Math.ceil(this.timeLeft)), {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(30 * s)}px`, color: '#0d0815', fontStyle: 'bold',
+      }).setOrigin(1, 0.5).setDepth(2).setAlpha(0.4);
+    }
 
     this.muteBtn = this.add.text(panelX + panelW - 12 * s - 90 * s - 20 * s, row2y, sound.muted ? '\u{1F507}' : '\u{1F50A}', {
       fontSize: `${Math.round(28 * s)}px`,
@@ -363,6 +395,21 @@ export class GameScene extends Phaser.Scene {
           fontSize: `${Math.round(24 * s)}px`,
         }).setOrigin(0.5).setDepth(3).setPadding(0, 4, 0, 4);
         this.objectiveIcons.push(icon as unknown as Phaser.GameObjects.Image);
+      } else if (obj.type === 'destroy_ice') {
+        const icon = this.add.graphics().setDepth(3);
+        icon.fillStyle(0xb4dcff, 0.8);
+        icon.fillCircle(panelX + 54 * s, iconY, 14 * s);
+        icon.lineStyle(2 * s, 0xffffff, 0.8);
+        icon.strokeCircle(panelX + 54 * s, iconY, 14 * s);
+        this.objectiveIcons.push(icon as unknown as Phaser.GameObjects.Image);
+      } else if (obj.type === 'destroy_crates') {
+        const icon = this.add.graphics().setDepth(3);
+        const hs = 14 * s;
+        icon.fillStyle(0x6a5a4a, 1);
+        icon.fillRoundedRect(panelX + 54 * s - hs, iconY - hs, hs * 2, hs * 2, 4 * s);
+        icon.lineStyle(2 * s, 0x8b6914, 0.8);
+        icon.strokeRoundedRect(panelX + 54 * s - hs, iconY - hs, hs * 2, hs * 2, 4 * s);
+        this.objectiveIcons.push(icon as unknown as Phaser.GameObjects.Image);
       } else if (obj.element !== undefined) {
         const icon = this.add.image(panelX + 56 * s, iconY, objKeys[obj.element]).setDepth(3);
         icon.setDisplaySize(30 * s, 30 * s);
@@ -377,6 +424,8 @@ export class GameScene extends Phaser.Scene {
 
   private objectiveLabel(obj: ObjectiveState): string {
     if (obj.type === 'score') return `Coins: ${obj.current} / ${obj.target}`;
+    if (obj.type === 'destroy_ice') return `Ice: ${obj.current} / ${obj.target}`;
+    if (obj.type === 'destroy_crates') return `Crates: ${obj.current} / ${obj.target}`;
     const elName = obj.element !== undefined ? ['Fire', 'Water', 'Earth', 'Leaf'][obj.element] : '';
     return `${elName}: ${obj.current} / ${obj.target}`;
   }
@@ -388,16 +437,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    const dt = Math.min(delta / 16.667, 3);
+    const dt = Math.min(delta, 50);
 
     if (!this.isProcessing && !this.levelComplete) {
-      this.timeLeft -= dt * 0.016;
-      if (this.timeLeft <= 0) {
-        this.timeLeft = 0;
-        this.gameOver(false);
+      if (this.isMovesMode) {
+      } else {
+        this.timeLeft -= dt / 1000;
+        if (this.timeLeft <= 0) {
+          this.timeLeft = 0;
+          this.gameOver(false);
+        }
+        this.timerText.setText(String(Math.ceil(this.timeLeft)));
+        if (this.timeLeft < 10) this.timerText.setColor('#ef4444');
       }
-      this.timerText.setText(String(Math.ceil(this.timeLeft)));
-      if (this.timeLeft < 10) this.timerText.setColor('#ef4444');
     }
 
     if (this.showComboText) {
@@ -611,7 +663,7 @@ export class GameScene extends Phaser.Scene {
         let type: number;
         do { type = Phaser.Math.Between(0, this.levelDef.orbTypes - 1); }
         while (this.wouldMatch(r, c, type));
-        this.grid[r][c] = { type, row: r, col: c, sprite: null, iceLayers: 0, iceSprite: null };
+        this.grid[r][c] = { type, special: SpecialType.None, row: r, col: c, sprite: null, iceLayers: 0, iceSprite: null, specialOverlay: null, specialText: null };
       }
     }
   }
@@ -630,6 +682,7 @@ export class GameScene extends Phaser.Scene {
           const s = this.add.sprite(this.cellX(c), this.cellY(r), `orb_${orb.type}`).setDepth(1);
           s.setScale(this.cell / 128);
           orb.sprite = s;
+          if (orb.special) this.drawOrbSpecialOverlay(orb);
 
           const iceDef = this.levelDef.ice.find(i => i.row === r && i.col === c);
           if (iceDef) {
@@ -642,6 +695,63 @@ export class GameScene extends Phaser.Scene {
 
     for (const cd of this.levelDef.crates) {
       this.createCrate(cd.row, cd.col, cd.hits || 1);
+    }
+  }
+
+  private drawOrbSpecialOverlay(orb: Orb) {
+    if (orb.special === SpecialType.None || !orb.sprite) return;
+    const g = this.add.graphics().setDepth(2);
+    const x = this.cellX(orb.col);
+    const y = this.cellY(orb.row);
+    const half = this.cell / 2 - 2;
+    const col = ELEMENT_COLORS[orb.type];
+    const colStr = '#' + col.toString(16).padStart(6, '0');
+
+    if (orb.special === SpecialType.StripedH || orb.special === SpecialType.StripedV) {
+      g.lineStyle(3, 0xffffff, 0.8);
+      if (orb.special === SpecialType.StripedH) {
+        g.lineBetween(x - half + 4, y, x + half - 4, y);
+      } else {
+        g.lineBetween(x, y - half + 4, x, y + half - 4);
+      }
+      g.lineStyle(2, 0xffffff, 0.4);
+      if (orb.special === SpecialType.StripedH) {
+        g.lineBetween(x - half + 2, y - 5, x + half - 2, y - 5);
+        g.lineBetween(x - half + 2, y + 5, x + half - 2, y + 5);
+      } else {
+        g.lineBetween(x - 5, y - half + 2, x - 5, y + half - 2);
+        g.lineBetween(x + 5, y - half + 2, x + 5, y + half - 2);
+      }
+    } else if (orb.special === SpecialType.Bomb) {
+      g.fillStyle(0x000000, 0.5);
+      g.fillCircle(x, y, half * 0.55);
+      g.lineStyle(2, 0xff4400, 1);
+      g.strokeCircle(x, y, half * 0.55);
+      g.lineStyle(1.5, 0xff8800, 0.7);
+      g.strokeCircle(x, y, half * 0.35);
+      orb.specialText = this.add.text(x, y, '\u{1F4A5}', {
+        fontSize: `${Math.round(half * 1.2)}px`,
+      }).setOrigin(0.5).setDepth(2.1);
+      orb.specialOverlay = g;
+    } else if (orb.special === SpecialType.ColorBomb) {
+      const colors = [0xff4444, 0x44ff44, 0x4444ff, 0xffff44, 0xff44ff, 0x44ffff];
+      const seg = (Math.PI * 2) / colors.length;
+      for (let i = 0; i < colors.length; i++) {
+        const start = i * seg - Math.PI / 2;
+        const end = (i + 1) * seg - Math.PI / 2;
+        g.fillStyle(colors[i], 0.8);
+        g.beginPath();
+        g.moveTo(x, y);
+        g.arc(x, y, half * 0.7, start, end);
+        g.closePath();
+        g.fill();
+      }
+      g.lineStyle(2, 0xffffff, 0.9);
+      g.strokeCircle(x, y, half * 0.7);
+      orb.specialText = this.add.text(x, y, '\u2605', {
+        fontSize: `${Math.round(half * 1)}px`, color: '#ffffff',
+      }).setOrigin(0.5).setDepth(2.1);
+      orb.specialOverlay = g;
     }
   }
 
@@ -689,6 +799,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.crates.set(`${row},${col}`, { hits, graphic: g });
+    this.aliveCrates.add(`${row},${col}`);
   }
 
   private redrawIceOverlays() {
@@ -712,10 +823,11 @@ export class GameScene extends Phaser.Scene {
       crate.graphic.destroy();
     }
     this.crates.clear();
-    for (const cd of this.levelDef.crates) {
-      const key = `${cd.row},${cd.col}`;
+    for (const key of this.aliveCrates) {
       if (this.crates.has(key)) continue;
-      this.createCrate(cd.row, cd.col, cd.hits || 1);
+      const [r, c] = key.split(',').map(Number);
+      const cd = this.levelDef.crates.find(cd => cd.row === r && cd.col === c);
+      if (cd) this.createCrate(cd.row, cd.col, cd.hits || 1);
     }
   }
 
@@ -800,17 +912,62 @@ export class GameScene extends Phaser.Scene {
 
   private async attemptSwap(r1: number, c1: number, r2: number, c2: number) {
     this.isProcessing = true;
+
+    const orbA = this.grid[r1][c1];
+    const orbB = this.grid[r2][c2];
+
+    if ((orbA && orbA.special === SpecialType.ColorBomb) || (orbB && orbB.special === SpecialType.ColorBomb)) {
+      const cb = orbA?.special === SpecialType.ColorBomb ? orbA : orbB;
+      const other = cb === orbA ? orbB : orbA;
+      if (cb && other && other.special === SpecialType.None) {
+        if (this.isMovesMode) {
+          this.movesLeft--;
+          if (this.movesText) this.movesText.setText(`Moves: ${this.movesLeft}`);
+        }
+        this.swapInGrid(r1, c1, r2, c2);
+        await this.animateSwap(r1, c1, r2, c2);
+        const targetType = other.type;
+        const all: { row: number; col: number }[] = [];
+        for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+            const orb = this.grid[r][c];
+            if (orb && orb.type === targetType && !this.isCrate(r, c)) all.push({ row: r, col: c });
+          }
+        }
+        this.comboCount = 0;
+        await this.processMatches(all, true);
+        if (this.isMovesMode && this.movesLeft <= 0 && !this.levelComplete) {
+          this.gameOver(false);
+          this.isProcessing = false;
+          return;
+        }
+        if (!this.hasValidMoves()) await this.shuffleBoard();
+        this.isProcessing = false;
+        return;
+      }
+    }
+
     this.swapInGrid(r1, c1, r2, c2);
     await this.animateSwap(r1, c1, r2, c2);
 
     const matches = this.findMatches();
     if (matches.length > 0) {
+      if (this.isMovesMode) {
+        this.movesLeft--;
+        if (this.movesText) this.movesText.setText(`Moves: ${this.movesLeft}`);
+      }
       this.comboCount = 0;
-      await this.processMatches(matches);
+      await this.processMatches(matches, false);
     } else {
       sound.playDenied();
       this.swapInGrid(r1, c1, r2, c2);
       await this.animateSwap(r1, c1, r2, c2);
+    }
+
+    if (this.isMovesMode && this.movesLeft <= 0 && !this.levelComplete) {
+      this.gameOver(false);
+      this.isProcessing = false;
+      return;
     }
 
     if (!this.hasValidMoves()) await this.shuffleBoard();
@@ -874,84 +1031,226 @@ export class GameScene extends Phaser.Scene {
     return Array.from(set).map(k => { const [r, c] = k.split(',').map(Number); return { row: r, col: c }; });
   }
 
-  private async processMatches(matches: { row: number; col: number }[]) {
+  private findMatchGroups(): { cells: { row: number; col: number }[]; dir: 'h' | 'v'; len: number }[] {
+    const groups: { cells: { row: number; col: number }[]; dir: 'h' | 'v'; len: number }[] = [];
+    for (let r = 0; r < this.rows; r++) {
+      let start = 0, len = 1;
+      for (let c = 1; c <= this.cols; c++) {
+        const orb = this.grid[r]?.[c];
+        const prev = this.grid[r]?.[c - 1];
+        if (orb && prev && orb.type === prev.type && orb.type !== undefined) { len++; }
+        else {
+          if (len >= 3) {
+            const cells: { row: number; col: number }[] = [];
+            for (let i = 0; i < len; i++) cells.push({ row: r, col: start + i });
+            groups.push({ cells, dir: 'h', len });
+          }
+          start = c; len = 1;
+        }
+      }
+    }
+    for (let c = 0; c < this.cols; c++) {
+      let start = 0, len = 1;
+      for (let r = 1; r <= this.rows; r++) {
+        const orb = this.grid[r]?.[c];
+        const prev = this.grid[r - 1]?.[c];
+        if (orb && prev && orb.type === prev.type && orb.type !== undefined) { len++; }
+        else {
+          if (len >= 3) {
+            const cells: { row: number; col: number }[] = [];
+            for (let i = 0; i < len; i++) cells.push({ row: start + i, col: c });
+            groups.push({ cells, dir: 'v', len });
+          }
+          start = r; len = 1;
+        }
+      }
+    }
+    return groups;
+  }
+
+  private async processMatches(matches: { row: number; col: number }[], fromColorBomb: boolean) {
     this.comboCount++;
     const mult = this.comboCount;
 
-    matches.forEach(cell => {
-      const orb = this.grid[cell.row]?.[cell.col];
-      if (orb) {
-        this.score += 10 * mult;
-        const obj = this.objectives.find(o => o.type === 'score');
-        if (obj) obj.current = this.score;
+    const groups = fromColorBomb ? [] : this.findMatchGroups();
+    const specialToCreate: { row: number; col: number; special: SpecialType; type: number }[] = [];
 
-        const matchObj = this.objectives.find(o => o.type === 'orbs_matched' && o.element === orb.type);
-        if (matchObj) matchObj.current++;
+    if (!fromColorBomb) {
+      for (const g of groups) {
+        if (g.len >= 5) {
+          const mid = g.cells[Math.floor(g.cells.length / 2)];
+          const type = this.grid[mid.row]?.[mid.col]?.type;
+          if (type !== undefined) specialToCreate.push({ row: mid.row, col: mid.col, special: SpecialType.ColorBomb, type });
+        } else if (g.len >= 4) {
+          const mid = g.cells[Math.floor(g.cells.length / 2)];
+          const type = this.grid[mid.row]?.[mid.col]?.type;
+          if (type !== undefined) specialToCreate.push({ row: mid.row, col: mid.col, special: g.dir === 'h' ? SpecialType.StripedH : SpecialType.StripedV, type });
+        }
       }
-    });
-    if (matches.length >= 4) this.score += 50 * mult;
-    if (matches.length >= 5) this.score += 100 * mult;
-    this.scoreText.setText(String(this.score));
-    this.updateObjectiveDisplay();
 
-    if (mult > 1) this.showCombo();
-
-    const crateHits = new Set<string>();
-    for (const cell of matches) {
-      const neighbors = [
-        { row: cell.row - 1, col: cell.col },
-        { row: cell.row + 1, col: cell.col },
-        { row: cell.row, col: cell.col - 1 },
-        { row: cell.row, col: cell.col + 1 },
-      ];
-      for (const n of neighbors) {
-        if (n.row >= 0 && n.row < this.rows && n.col >= 0 && n.col < this.cols) {
-          const key = `${n.row},${n.col}`;
-          if (this.crates.has(key)) crateHits.add(key);
+      const cellCount = new Map<string, number>();
+      for (const g of groups) {
+        if (g.len >= 3) {
+          for (const c of g.cells) {
+            const key = `${c.row},${c.col}`;
+            cellCount.set(key, (cellCount.get(key) || 0) + 1);
+          }
+        }
+      }
+      for (const [key, count] of cellCount) {
+        if (count >= 2) {
+          const [rStr, cStr] = key.split(',');
+          const row = parseInt(rStr), col = parseInt(cStr);
+          if (!specialToCreate.find(s => s.row === row && s.col === col)) {
+            const type = this.grid[row]?.[col]?.type;
+            if (type !== undefined) specialToCreate.push({ row, col, special: SpecialType.Bomb, type });
+          }
         }
       }
     }
 
+    const toDestroy = new Set<string>();
+    const effectTriggers: { row: number; col: number; special: SpecialType }[] = [];
+
+    for (const cell of matches) {
+      toDestroy.add(`${cell.row},${cell.col}`);
+      const orb = this.grid[cell.row]?.[cell.col];
+      if (orb && orb.special !== SpecialType.None) {
+        effectTriggers.push({ row: cell.row, col: cell.col, special: orb.special });
+      }
+    }
+
+    let triggerIdx = 0;
+    while (triggerIdx < effectTriggers.length) {
+      const et = effectTriggers[triggerIdx];
+      triggerIdx++;
+      const extra = this.specialEffectCells(et);
+      for (const ec of extra) {
+        const key = `${ec.row},${ec.col}`;
+        if (!toDestroy.has(key)) {
+          toDestroy.add(key);
+          const orb = this.grid[ec.row]?.[ec.col];
+          if (orb && orb.special !== SpecialType.None) {
+            effectTriggers.push({ row: ec.row, col: ec.col, special: orb.special });
+          }
+        }
+      }
+    }
+
+    for (const sc of specialToCreate) {
+      toDestroy.delete(`${sc.row},${sc.col}`);
+    }
+
+    for (const key of toDestroy) {
+      const [rStr, cStr] = key.split(',');
+      const row = parseInt(rStr), col = parseInt(cStr);
+      const orb = this.grid[row]?.[col];
+      if (orb) {
+        this.score += 10 * mult;
+        for (const obj of this.objectives) {
+          if (obj.type === 'score') obj.current = this.score;
+          if (obj.type === 'orbs_matched' && obj.element === orb.type) obj.current++;
+          if (obj.type === 'destroy_ice' && orb.iceLayers > 0) obj.current++;
+        }
+      }
+    }
+
+    if (toDestroy.size >= 4) this.score += 50 * mult;
+    if (toDestroy.size >= 5) this.score += 100 * mult;
+    this.scoreText.setText(String(this.score));
+    this.updateObjectiveDisplay();
+    if (mult > 1) this.showCombo();
+
+    const crateHits = new Set<string>();
+    for (const key of toDestroy) {
+      const [rStr, cStr] = key.split(',');
+      const r = parseInt(rStr), c = parseInt(cStr);
+      for (const n of [{ row: r - 1, col: c }, { row: r + 1, col: c }, { row: r, col: c - 1 }, { row: r, col: c + 1 }]) {
+        if (n.row >= 0 && n.row < this.rows && n.col >= 0 && n.col < this.cols) {
+          const ck = `${n.row},${n.col}`;
+          if (this.crates.has(ck)) crateHits.add(ck);
+        }
+      }
+    }
     for (const key of crateHits) {
       const crate = this.crates.get(key)!;
       crate.hits--;
       if (crate.hits <= 0) {
         this.removeCrate(key);
+        for (const obj of this.objectives) if (obj.type === 'destroy_crates') obj.current++;
+        this.updateObjectiveDisplay();
       }
     }
 
     const pops: Promise<void>[] = [];
-    matches.forEach(cell => {
-      const orb = this.grid[cell.row]?.[cell.col];
-      if (!orb || !orb.sprite) return;
+    for (const key of toDestroy) {
+      const [rStr, cStr] = key.split(',');
+      const r = parseInt(rStr), c = parseInt(cStr);
+      const orb = this.grid[r]?.[c];
+      if (!orb || !orb.sprite) continue;
       sound.playMatch(orb.type, this.comboCount);
-      const x = this.cellX(cell.col);
-      const y = this.cellY(cell.row);
-      this.burstParticles(x, y, orb.type);
-
+      this.burstParticles(this.cellX(c), this.cellY(r), orb.type);
+      if (orb.specialOverlay) { orb.specialOverlay.destroy(); orb.specialOverlay = null; }
+      if (orb.specialText) { orb.specialText.destroy(); orb.specialText = null; }
       if (orb.iceLayers > 0) {
         orb.iceLayers--;
-        if (orb.iceLayers <= 0) {
-          if (orb.iceSprite) { orb.iceSprite.destroy(); orb.iceSprite = null; }
-        }
+        if (orb.iceLayers <= 0) { if (orb.iceSprite) { orb.iceSprite.destroy(); orb.iceSprite = null; } }
       }
-
       pops.push(new Promise<void>(resolve => {
         this.tweens.add({
           targets: orb.sprite, scaleX: 0, scaleY: 0, alpha: 0, duration: 250, ease: 'Back.easeIn',
-          onComplete: () => { orb.sprite!.destroy(); this.grid[cell.row][cell.col] = null; resolve(); },
+          onComplete: () => { orb.sprite!.destroy(); this.grid[r][c] = null; resolve(); },
         });
       }));
-    });
-
+    }
     await Promise.all(pops);
+
+    for (const sc of specialToCreate) {
+      if (this.isCrate(sc.row, sc.col)) continue;
+      const old = this.grid[sc.row][sc.col];
+      if (old) {
+        if (old.specialOverlay) { old.specialOverlay.destroy(); old.specialOverlay = null; }
+        if (old.specialText) { old.specialText.destroy(); old.specialText = null; }
+        if (old.sprite) old.sprite.destroy();
+        this.grid[sc.row][sc.col] = null;
+      }
+      await this.createSpecialOrb(sc.row, sc.col, sc.special, sc.type);
+    }
+
     await this.applyGravity();
     await this.fillEmpty();
+    if (this.checkWin()) { this.updateObjectiveDisplay(); return; }
 
-    if (this.checkWin()) return;
+    const next = this.findMatches();
+    if (next.length > 0 && !this.levelComplete) await this.processMatches(next, false);
+  }
 
-    const nextMatches = this.findMatches();
-    if (nextMatches.length > 0 && !this.levelComplete) await this.processMatches(nextMatches);
+  private specialEffectCells(et: { row: number; col: number; special: SpecialType }): { row: number; col: number }[] {
+    const out: { row: number; col: number }[] = [];
+    if (et.special === SpecialType.StripedH) {
+      for (let c = 0; c < this.cols; c++) if (!this.isCrate(et.row, c) && this.grid[et.row]?.[c]) out.push({ row: et.row, col: c });
+    } else if (et.special === SpecialType.StripedV) {
+      for (let r = 0; r < this.rows; r++) if (!this.isCrate(r, et.col) && this.grid[r]?.[et.col]) out.push({ row: r, col: et.col });
+    } else if (et.special === SpecialType.Bomb) {
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const rr = et.row + dr, cc = et.col + dc;
+        if (rr >= 0 && rr < this.rows && cc >= 0 && cc < this.cols && !this.isCrate(rr, cc) && this.grid[rr]?.[cc]) out.push({ row: rr, col: cc });
+      }
+    }
+    return out;
+  }
+
+  private createSpecialOrb(row: number, col: number, special: SpecialType, type: number): Promise<void> {
+    return new Promise<void>(resolve => {
+      const s = this.add.sprite(this.cellX(col), this.cellY(row), `orb_${type}`).setDepth(1).setScale(0);
+      const orb: Orb = { type, special, row, col, sprite: s, iceLayers: 0, iceSprite: null, specialOverlay: null, specialText: null };
+      this.grid[row][col] = orb;
+      this.drawOrbSpecialOverlay(orb);
+      this.tweens.add({
+        targets: s, scaleX: this.cell / 128, scaleY: this.cell / 128, duration: 300, ease: 'Back.easeOut',
+        onComplete: () => resolve(),
+      });
+    });
   }
 
   private removeCrate(key: string) {
@@ -959,6 +1258,7 @@ export class GameScene extends Phaser.Scene {
     if (!crate) return;
     crate.graphic.destroy();
     this.crates.delete(key);
+    this.aliveCrates.delete(key);
   }
 
   private checkWin(): boolean {
@@ -1018,7 +1318,7 @@ export class GameScene extends Phaser.Scene {
           const startY = this.cellY(r) - emptyCount * (this.cell + this.gap);
           const s = this.add.sprite(this.cellX(c), startY, `orb_${type}`).setDepth(1);
           s.setScale(this.cell / 128);
-          this.grid[r][c] = { type, row: r, col: c, sprite: s, iceLayers: 0, iceSprite: null };
+          this.grid[r][c] = { type, special: SpecialType.None, row: r, col: c, sprite: s, iceLayers: 0, iceSprite: null, specialOverlay: null, specialText: null };
           emptyCount--;
 
           falls.push(new Promise<void>(resolve => {
@@ -1104,7 +1404,7 @@ export class GameScene extends Phaser.Scene {
     const w = this.camW, h = this.camH;
     const s = this.sf;
 
-    const overlay = this.add.graphics().setDepth(50);
+    const overlay = this.add.graphics().setDepth(100);
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, w, h);
 
@@ -1114,7 +1414,7 @@ export class GameScene extends Phaser.Scene {
     const panelY = h / 2;
     const panelR = 20 * s;
 
-    const panel = this.add.graphics().setDepth(50);
+    const panel = this.add.graphics().setDepth(100);
     this.drawWoodPanelGfx(panel, panelX, panelY, panelW, panelH, panelR);
 
     let yOff = panelY - panelH / 2;
@@ -1123,7 +1423,7 @@ export class GameScene extends Phaser.Scene {
     const titleColor = won ? '#4ade80' : '#f87171';
     const title = this.add.text(panelX, yOff + (won ? 42 : 36) * s, titleText, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(38 * s)}px`, color: titleColor, fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(51).setAlpha(0);
+    }).setOrigin(0.5).setDepth(101).setAlpha(0);
     this.tweens.add({ targets: title, alpha: 1, duration: 400, delay: 100, ease: 'Back.easeOut' });
 
     if (won) {
@@ -1134,76 +1434,198 @@ export class GameScene extends Phaser.Scene {
       const starStr = '\u2605'.repeat(stars) + '\u2606'.repeat(3 - stars);
       const starText = this.add.text(panelX, yOff + 86 * s, starStr, {
         fontFamily: 'Georgia, serif', fontSize: `${Math.round(46 * s)}px`, color: '#fbbf24',
-      }).setOrigin(0.5).setDepth(51).setAlpha(0);
+      }).setOrigin(0.5).setDepth(101).setAlpha(0);
       this.tweens.add({ targets: starText, alpha: 1, scaleX: { from: 2, to: 1 }, scaleY: { from: 2, to: 1 }, duration: 600, delay: 300, ease: 'Elastic.easeOut' });
 
       const levelLabel = this.add.text(panelX, yOff + 118 * s, `Level ${this.levelDef.id}`, {
         fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
-      }).setOrigin(0.5).setDepth(51).setAlpha(0);
+      }).setOrigin(0.5).setDepth(101).setAlpha(0);
       this.tweens.add({ targets: levelLabel, alpha: 1, duration: 400, delay: 350, ease: 'Quad.easeOut' });
     }
 
     const scoreLabelY = yOff + (won ? 152 : 86) * s;
     const scoreLabel = this.add.text(panelX, scoreLabelY, 'COINS EARNED', {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#a78bfa', fontStyle: 'italic',
-    }).setOrigin(0.5).setDepth(51).setAlpha(0);
+    }).setOrigin(0.5).setDepth(101).setAlpha(0);
     this.tweens.add({ targets: scoreLabel, alpha: 1, duration: 400, delay: won ? 400 : 200, ease: 'Quad.easeOut' });
 
     const coinCenterY = scoreLabelY + (won ? 38 : 30) * s;
     const coinIconGO = this.add.text(panelX - 58 * s, coinCenterY, '\u{1FA99}', {
       fontSize: `${Math.round(40 * s)}px`,
-    }).setOrigin(0.5).setDepth(51).setAlpha(0).setPadding(0, 4, 0, 4);
+    }).setOrigin(0.5).setDepth(101).setAlpha(0).setPadding(0, 4, 0, 4);
     this.tweens.add({ targets: coinIconGO, alpha: 1, duration: 400, delay: won ? 450 : 250, ease: 'Quad.easeOut' });
 
     const scoreVal = this.add.text(panelX + 52 * s, coinCenterY, String(this.score), {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(54 * s)}px`, color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0, 0.5).setDepth(51).setAlpha(0);
+    }).setOrigin(0, 0.5).setDepth(101).setAlpha(0);
     this.tweens.add({ targets: scoreVal, alpha: 1, duration: 400, delay: won ? 500 : 300, ease: 'Quad.easeOut' });
 
     const btnW = Math.min(260 * s, panelW - 40 * s);
     const btnH = 60 * s;
-    const btnX = panelX - btnW / 2;
     let btnY = yOff + (won ? 244 : 154) * s;
 
-    const makeWoodBtn = (label: string, bx: number, by: number, depth: number, alpha0: boolean) => {
-      const wood = this.add.image(panelX, by + btnH / 2, 'wood_panel').setDepth(depth);
+    const makeBtnInteractive = (label: string, by: number, delay: number, cb: () => void) => {
+      const wood = this.add.image(panelX, by + btnH / 2, 'wood_panel').setDepth(101);
       wood.setDisplaySize(btnW, btnH);
-      const border = this.add.graphics().setDepth(depth + 0.1);
+      const border = this.add.graphics().setDepth(101);
       border.lineStyle(2 * s, 0x8b6914, 0.6);
-      border.strokeRoundedRect(bx, by, btnW, btnH, 12 * s);
+      border.strokeRoundedRect(panelX - btnW / 2, by, btnW, btnH, 12 * s);
       const txt = this.add.text(panelX, by + btnH / 2, label, {
         fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(depth + 0.2);
-      const zone = this.add.zone(panelX, by + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true }).setDepth(depth + 0.3);
-      zone.on('pointerover', () => { border.clear(); border.lineStyle(3 * s, 0xffd700, 1); border.strokeRoundedRect(bx, by, btnW, btnH, 12 * s); });
-      zone.on('pointerout', () => { border.clear(); border.lineStyle(2 * s, 0x8b6914, 0.6); border.strokeRoundedRect(bx, by, btnW, btnH, 12 * s); });
-      if (alpha0) { wood.setAlpha(0); border.setAlpha(0); txt.setAlpha(0); }
-      return { wood, border, txt, zone };
+      }).setOrigin(0.5).setDepth(101).setAlpha(0);
+
+      const group = [wood, border, txt];
+      this.tweens.add({ targets: group, alpha: 1, duration: 400, delay, ease: 'Quad.easeOut' });
+
+      txt.setInteractive({ useHandCursor: true });
+      txt.on('pointerover', () => {
+        border.clear();
+        border.lineStyle(3 * s, 0xffd700, 1);
+        border.strokeRoundedRect(panelX - btnW / 2, by, btnW, btnH, 12 * s);
+        txt.setColor('#ffffff');
+      });
+      txt.on('pointerout', () => {
+        border.clear();
+        border.lineStyle(2 * s, 0x8b6914, 0.6);
+        border.strokeRoundedRect(panelX - btnW / 2, by, btnW, btnH, 12 * s);
+        txt.setColor('#fff8e7');
+      });
+      txt.on('pointerdown', cb);
     };
 
     if (won) {
       const hasNext = !!getLevel(this.levelDef.id + 1);
       const nextLabel = hasNext ? 'NEXT LEVEL' : 'YOU WIN!';
-      const next = makeWoodBtn(nextLabel, btnX, btnY, 51, true);
-      this.tweens.add({ targets: [next.wood, next.border, next.txt], alpha: 1, duration: 400, delay: 700, ease: 'Quad.easeOut' });
-      if (hasNext) {
-        next.zone.on('pointerdown', () => this.scene.start('GameScene', { levelId: this.levelDef.id + 1 }));
-      } else {
-        next.zone.on('pointerdown', () => this.scene.start('LevelSelectScene'));
-      }
+      makeBtnInteractive(nextLabel, btnY, 700, () => {
+        if (!hasLives()) { this.showBuyLivesModal(() => this.scene.start('GameScene', { levelId: this.levelDef.id + 1 })); return; }
+        if (hasNext) { saveLastLevel(this.levelDef.id + 1); this.scene.start('GameScene', { levelId: this.levelDef.id + 1 }); }
+        else this.scene.start('LevelSelectScene');
+      });
       btnY += btnH + 14 * s;
     }
 
-    const replay = makeWoodBtn('RETRY', btnX, btnY, 51, true);
-    this.tweens.add({ targets: [replay.wood, replay.border, replay.txt], alpha: 1, duration: 400, delay: won ? 850 : 500, ease: 'Quad.easeOut' });
-    replay.zone.on('pointerdown', () => this.scene.start('GameScene', { levelId: this.levelDef.id }));
-
+    makeBtnInteractive('RETRY', btnY, won ? 850 : 500, () => {
+      if (!hasLives()) { this.showBuyLivesModal(() => this.scene.start('GameScene', { levelId: this.levelDef.id })); return; }
+      this.scene.start('GameScene', { levelId: this.levelDef.id });
+    });
     btnY += btnH + 14 * s;
-    const menu = makeWoodBtn('MENU', btnX, btnY, 51, true);
-    this.tweens.add({ targets: [menu.wood, menu.border, menu.txt], alpha: 1, duration: 400, delay: won ? 1000 : 650, ease: 'Quad.easeOut' });
-    menu.zone.on('pointerdown', () => {
+    makeBtnInteractive('MENU', btnY, won ? 1000 : 650, () => {
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.time.delayedCall(300, () => this.scene.start('MenuScene'));
+    });
+  }
+
+  private showBuyLivesModal(onBuy: () => void) {
+    const w = this.camW, h = this.camH;
+    const s = this.sf;
+
+    const overlay = this.add.graphics().setDepth(200);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, w, h);
+
+    const panelW = Math.min(300 * s, w * 0.85);
+    const panelH = 290 * s;
+    const px = w / 2;
+    const py = h / 2;
+
+    const panel = this.add.image(px, py, 'wood_panel').setDepth(201);
+    panel.setDisplaySize(panelW, panelH);
+    const border = this.add.graphics().setDepth(201);
+    border.lineStyle(3 * s, 0xffd700, 0.7);
+    border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
+
+    const heartsStr = '\u2764'.repeat(3);
+    const title = this.add.text(px, py - 80 * s, heartsStr, {
+      fontSize: `${Math.round(44 * s)}px`,
+      color: '#ff4d6d',
+    }).setOrigin(0.5).setDepth(202);
+
+    const label = this.add.text(px, py - 42 * s, '3 LIVES', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(202);
+
+    const divY = py - 16 * s;
+    const divider = this.add.graphics().setDepth(202);
+    divider.lineStyle(1 * s, 0x8b6914, 0.4);
+    divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
+
+    const coinIcon = this.add.text(px, py + 4 * s, '\u{1FA99}', {
+      fontSize: `${Math.round(22 * s)}px`,
+    }).setOrigin(0.5).setDepth(202);
+
+    const infoText = this.add.text(px, py + 28 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
+    }).setOrigin(0.5).setDepth(202);
+
+    const btnW = Math.min(220 * s, panelW - 50 * s);
+    const btnH = 52 * s;
+
+    const buyBtnX = px - btnW / 2;
+    const buyBtnY = py + 54 * s;
+
+    const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(202);
+    buyPanel.setDisplaySize(btnW, btnH);
+    const buyBorder = this.add.graphics().setDepth(202);
+    buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
+    buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+
+    const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(203).setInteractive({ useHandCursor: true });
+    buyText.on('pointerover', () => {
+      buyBorder.clear();
+      buyBorder.lineStyle(3 * s, 0xffd700, 1);
+      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+      buyText.setColor('#ffffff');
+    });
+    buyText.on('pointerout', () => {
+      buyBorder.clear();
+      buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
+      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+      buyText.setColor('#ffd700');
+    });
+    buyText.on('pointerdown', () => {
+      if (!buyLives()) return;
+      overlay.destroy(); panel.destroy(); border.destroy();
+      title.destroy(); label.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
+      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+      onBuy();
+    });
+
+    const cancelBtnW = Math.min(130 * s, panelW * 0.45);
+    const cancelBtnH = 38 * s;
+    const cancelBtnX = px - cancelBtnW / 2;
+    const cancelBtnY = buyBtnY + btnH + 16 * s;
+
+    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(202);
+    cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
+    const cancelBorder = this.add.graphics().setDepth(202);
+    cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+
+    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CANCEL', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(203).setInteractive({ useHandCursor: true });
+    cancelText.on('pointerover', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(2 * s, 0xa78bfa, 0.8);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#ffffff');
+    });
+    cancelText.on('pointerout', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#a78bfa');
+    });
+    cancelText.on('pointerdown', () => {
+      overlay.destroy(); panel.destroy(); border.destroy();
+      title.destroy(); label.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
+      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
     });
   }
 

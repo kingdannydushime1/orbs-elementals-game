@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { levels, getTotalLevels } from '../levels';
-import { hasLives, saveLastLevel, loadCoins } from '../utils/save';
+import { hasLives, saveLastLevel, loadCoins, buyLives, LIVES_COST, MAX_LIVES } from '../utils/save';
 
 const ELEMENT_COLORS = [0xff6b35, 0x3a9bff, 0x8b6b3a, 0x44cc44];
 const ELEMENT_GLOWS = [0xff8844, 0x66bbff, 0xaa8855, 0x66ee66];
 
 export class LevelSelectScene extends Phaser.Scene {
+  private pendingLevelId = 0;
+
   constructor() {
     super({ key: 'LevelSelectScene' });
   }
@@ -256,7 +258,8 @@ export class LevelSelectScene extends Phaser.Scene {
 
         btnZone.on('pointerdown', () => {
           if (!hasLives()) {
-            this.scene.start('MenuScene');
+            this.pendingLevelId = level.id;
+            this.showBuyLivesModal(w, h, s);
             return;
           }
           saveLastLevel(level.id);
@@ -285,5 +288,121 @@ export class LevelSelectScene extends Phaser.Scene {
     } catch {
       return 0;
     }
+  }
+
+  private showBuyLivesModal(w: number, h: number, s: number) {
+    const overlay = this.add.graphics().setDepth(100);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, w, h);
+
+    const panelW = Math.min(300 * s, w * 0.85);
+    const panelH = 290 * s;
+    const px = w / 2;
+    const py = h / 2;
+
+    const panel = this.add.image(px, py, 'wood_panel').setDepth(101);
+    panel.setDisplaySize(panelW, panelH);
+    const border = this.add.graphics().setDepth(101);
+    border.lineStyle(3 * s, 0xffd700, 0.7);
+    border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
+
+    const heartsStr = '\u2764'.repeat(3);
+    const title = this.add.text(px, py - 80 * s, heartsStr, {
+      fontSize: `${Math.round(44 * s)}px`,
+      color: '#ff4d6d',
+    }).setOrigin(0.5).setDepth(102);
+
+    const label = this.add.text(px, py - 42 * s, '3 LIVES', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(102);
+
+    const divY = py - 16 * s;
+    const divider = this.add.graphics().setDepth(102);
+    divider.lineStyle(1 * s, 0x8b6914, 0.4);
+    divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
+
+    const coinIcon = this.add.text(px, py + 4 * s, '\u{1FA99}', {
+      fontSize: `${Math.round(22 * s)}px`,
+    }).setOrigin(0.5).setDepth(102);
+
+    const infoText = this.add.text(px, py + 28 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
+    }).setOrigin(0.5).setDepth(102);
+
+    const btnW = Math.min(220 * s, panelW - 50 * s);
+    const btnH = 52 * s;
+
+    const buyBtnX = px - btnW / 2;
+    const buyBtnY = py + 54 * s;
+
+    const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(102);
+    buyPanel.setDisplaySize(btnW, btnH);
+    const buyBorder = this.add.graphics().setDepth(102);
+    buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
+    buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+
+    const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    buyText.on('pointerover', () => {
+      buyBorder.clear();
+      buyBorder.lineStyle(3 * s, 0xffd700, 1);
+      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+      buyText.setColor('#ffffff');
+    });
+    buyText.on('pointerout', () => {
+      buyBorder.clear();
+      buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
+      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+      buyText.setColor('#ffd700');
+    });
+    buyText.on('pointerdown', () => {
+      if (!buyLives()) return;
+      overlay.destroy(); panel.destroy(); border.destroy();
+      title.destroy(); label.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
+      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
+
+      const lid = this.pendingLevelId;
+      saveLastLevel(lid);
+      this.cameras.main.fadeOut(250, 0, 0, 0);
+      this.time.delayedCall(250, () => {
+        this.scene.start('GameScene', { levelId: lid });
+      });
+    });
+
+    const cancelBtnW = Math.min(130 * s, panelW * 0.45);
+    const cancelBtnH = 38 * s;
+    const cancelBtnX = px - cancelBtnW / 2;
+    const cancelBtnY = buyBtnY + btnH + 16 * s;
+
+    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(102);
+    cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
+    const cancelBorder = this.add.graphics().setDepth(102);
+    cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+
+    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CANCEL', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    cancelText.on('pointerover', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(2 * s, 0xa78bfa, 0.8);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#ffffff');
+    });
+    cancelText.on('pointerout', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#a78bfa');
+    });
+    cancelText.on('pointerdown', () => {
+      overlay.destroy(); panel.destroy(); border.destroy();
+      title.destroy(); label.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
+      buyPanel.destroy(); buyBorder.destroy(); buyText.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+    });
   }
 }
