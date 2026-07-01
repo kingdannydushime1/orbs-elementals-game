@@ -1687,11 +1687,7 @@ export class GameScene extends Phaser.Scene {
 
     const overlay = this.add.graphics().setDepth(200);
     overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, w, h).setInteractive({ useHandCursor: false });
-
-    overlay.on('pointerdown', () => {
-      overlay.destroy(); panelContainer.destroy();
-    });
+    overlay.fillRect(0, 0, w, h);
 
     const panelW = Math.min(300 * s, w * 0.85);
     const panelH = 420 * s;

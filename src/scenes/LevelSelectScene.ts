@@ -317,8 +317,7 @@ export class LevelSelectScene extends Phaser.Scene {
   private showBuyLivesModal(w: number, h: number, s: number) {
     const overlay = this.add.graphics().setDepth(100);
     overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, w, h).setInteractive({ useHandCursor: false });
-    overlay.on('pointerdown', () => { overlay.destroy(); panelContainer.destroy(); });
+    overlay.fillRect(0, 0, w, h);
 
     const panelW = Math.min(300 * s, w * 0.85);
     const panelH = 420 * s;
