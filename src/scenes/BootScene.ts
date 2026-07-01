@@ -80,6 +80,7 @@ export class BootScene extends Phaser.Scene {
     this.makeGlowTex('particle_air', 0xccddff);
     this.makeGlowTex('particle_spark', 0xffffff);
     this.makeGlowTex('particle_glow', 0xffd700);
+    this.makeHexTex();
   }
 
   private makeWoodTexture() {
@@ -305,6 +306,28 @@ export class BootScene extends Phaser.Scene {
     lctx.restore();
 
     lCanvas.refresh();
+  }
+
+  private makeHexTex() {
+    const size = 14;
+    const canvas = this.textures.createCanvas('particle_hex', size, size);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    ctx.clearRect(0, 0, size, size);
+    const cx = size / 2, cy = size / 2, r = size / 2 - 1;
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const px = cx + Math.cos(a) * r;
+      const py = cy + Math.sin(a) * r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    canvas.refresh();
   }
 
   private makeRockTex() {

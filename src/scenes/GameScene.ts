@@ -2230,60 +2230,70 @@ export class GameScene extends Phaser.Scene {
       flash.fillStyle(0xccf0ff, 0.18); flash.fillRect(0, 0, w, h);
       this.tweens.add({ targets: flash, alpha: 0, duration: 250, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
 
-      const crystalGfx = this.add.graphics().setDepth(13);
-      const drawCrystal = (cx: number, cy: number, size: number, color: number, alpha: number, points: number) => {
-        crystalGfx.fillStyle(color, alpha);
-        crystalGfx.beginPath();
-        for (let i = 0; i < points; i++) {
-          const a = (i / points) * Math.PI * 2 - Math.PI / 2;
-          const r = i % 2 === 0 ? size : size * Phaser.Math.FloatBetween(0.3, 0.6);
+      const drawHex = (g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number) => {
+        g.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
           const px = cx + Math.cos(a) * r;
           const py = cy + Math.sin(a) * r;
-          i === 0 ? crystalGfx.moveTo(px, py) : crystalGfx.lineTo(px, py);
+          i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
         }
-        crystalGfx.closePath(); crystalGfx.fill();
-        crystalGfx.lineStyle(1.5, 0xffffff, alpha * 0.5);
-        crystalGfx.strokePath();
+        g.closePath();
       };
 
-      drawCrystal(x, y, 12, 0xffffff, 0.9, 8);
-      drawCrystal(x + 30, y - 20, 8, 0xccf0ff, 0.7, 6);
-      drawCrystal(x - 25, y + 18, 7, 0xaaddff, 0.65, 6);
-      drawCrystal(x + 20, y + 28, 6, 0x88ddff, 0.6, 8);
-      drawCrystal(x - 18, y - 30, 9, 0xbbeeff, 0.75, 6);
-      drawCrystal(x + 40, y + 10, 5, 0xccf0ff, 0.5, 8);
-      drawCrystal(x - 38, y + 5, 6, 0xaaddff, 0.55, 6);
+      const snowGfx = this.add.graphics().setDepth(13);
 
-      const frostLines = this.add.graphics().setDepth(12);
-      frostLines.lineStyle(2, 0xffffff, 0.5);
-      for (let i = 0; i < 12; i++) {
-        const a = (i / 12) * Math.PI * 2 + Phaser.Math.FloatBetween(-0.08, 0.08);
-        const len = Phaser.Math.Between(40, 75);
-        frostLines.beginPath();
-        frostLines.moveTo(x, y);
-        let fx = x, fy = y;
-        const segs = 3 + Phaser.Math.Between(0, 2);
-        for (let j = 0; j < segs; j++) {
-          const t = (j + 1) / segs;
-          fx = x + Math.cos(a) * len * t + Phaser.Math.FloatBetween(-5, 5);
-          fy = y + Math.sin(a) * len * t + Phaser.Math.FloatBetween(-5, 5);
-          frostLines.lineTo(fx, fy);
+      const drawSnowflake = (cx: number, cy: number, size: number, color: number, alpha: number) => {
+        snowGfx.fillStyle(color, alpha);
+        drawHex(snowGfx, cx, cy, size);
+        snowGfx.fill();
+        snowGfx.lineStyle(1, 0xffffff, alpha * 0.6);
+        drawHex(snowGfx, cx, cy, size);
+        snowGfx.strokePath();
+        snowGfx.lineStyle(1, color, alpha * 0.4);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+          const inner = size * 0.25;
+          snowGfx.beginPath();
+          snowGfx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+          snowGfx.lineTo(cx + Math.cos(a) * size, cy + Math.sin(a) * size);
+          snowGfx.strokePath();
+          const ba = a + Math.PI / 6;
+          const bl = size * 0.4;
+          snowGfx.beginPath();
+          snowGfx.moveTo(cx + Math.cos(a) * size * 0.6, cy + Math.sin(a) * size * 0.6);
+          snowGfx.lineTo(cx + Math.cos(ba) * bl + Math.cos(a) * size * 0.6, cy + Math.sin(ba) * bl + Math.sin(a) * size * 0.6);
+          snowGfx.strokePath();
+          snowGfx.beginPath();
+          snowGfx.moveTo(cx + Math.cos(a) * size * 0.6, cy + Math.sin(a) * size * 0.6);
+          snowGfx.lineTo(cx + Math.cos(-ba) * bl + Math.cos(a) * size * 0.6, cy + Math.sin(-ba) * bl + Math.sin(a) * size * 0.6);
+          snowGfx.strokePath();
         }
-        frostLines.strokePath();
-        const branchAngle = a + Phaser.Math.FloatBetween(0.3, 0.8) * (Phaser.Math.Between(0, 1) * 2 - 1);
-        const branchLen = len * Phaser.Math.FloatBetween(0.2, 0.4);
-        frostLines.lineStyle(1, 0xccf0ff, 0.3);
-        if (branchLen > 10) {
-          frostLines.beginPath(); frostLines.moveTo(fx, fy);
-          frostLines.lineTo(fx + Math.cos(branchAngle) * branchLen, fy + Math.sin(branchAngle) * branchLen);
-          frostLines.strokePath();
-        }
-      }
+      };
+
+      drawSnowflake(x, y, 14, 0xffffff, 0.9);
+      drawSnowflake(x + 28, y - 24, 9, 0xccf0ff, 0.7);
+      drawSnowflake(x - 32, y + 16, 8, 0xaaddff, 0.65);
+      drawSnowflake(x + 22, y + 30, 7, 0x88ddff, 0.6);
+      drawSnowflake(x - 20, y - 35, 10, 0xbbeeff, 0.75);
+      drawSnowflake(x + 42, y + 8, 6, 0xccf0ff, 0.5);
+      drawSnowflake(x - 40, y - 6, 7, 0xaaddff, 0.55);
+
+      const hexRing = this.add.graphics().setDepth(12);
+      hexRing.lineStyle(2, 0xffffff, 0.4);
+      drawHex(hexRing, x, y, 20);
+      hexRing.strokePath();
+      hexRing.lineStyle(1.5, 0xccf0ff, 0.25);
+      drawHex(hexRing, x, y, 36);
+      hexRing.strokePath();
+      hexRing.lineStyle(1, 0xaaddff, 0.15);
+      drawHex(hexRing, x, y, 52);
+      hexRing.strokePath();
 
       this.tweens.add({
-        targets: [crystalGfx, frostLines],
+        targets: [snowGfx, hexRing],
         alpha: 0, duration: 600, delay: 300,
-        ease: 'Quad.easeIn', onComplete: () => { crystalGfx.destroy(); frostLines.destroy(); },
+        ease: 'Quad.easeIn', onComplete: () => { snowGfx.destroy(); hexRing.destroy(); },
       });
 
       const iceShards = this.add.particles(x, y, 'particle_spark', {
@@ -2296,25 +2306,39 @@ export class GameScene extends Phaser.Scene {
       }).setDepth(10);
       iceShards.explode();
 
+      const snowfall = this.add.particles(x, y, 'particle_hex', {
+        speedX: { min: -40, max: 40 }, speedY: { min: 60, max: 180 },
+        scale: { start: 1.5 * s, end: 0.3 * s },
+        alpha: { start: 0.8, end: 0 }, rotate: { min: -180, max: 180 },
+        lifespan: { min: 1500, max: 3500 }, quantity: 22,
+        tint: [0xffffff, 0xccf0ff, 0xeef8ff],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(11);
+      snowfall.explode();
+
       const frostMist = this.add.particles(x, y, 'particle_spark', {
-        speed: { min: 30, max: 140 }, angle: { min: 0, max: 360 },
-        scale: { start: 3.0 * s, end: 0 },
-        alpha: { start: 0.4, end: 0 }, rotate: { min: -360, max: 360 },
-        lifespan: { min: 1000, max: 2500 }, quantity: 16,
-        tint: [0xccf0ff, 0xaaddff, 0xffffff],
+        speed: { min: 20, max: 100 }, angle: { min: 0, max: 360 },
+        gravityY: -20, scale: { start: 3.5 * s, end: 0 },
+        alpha: { start: 0.35, end: 0 }, lifespan: { min: 1000, max: 2800 },
+        quantity: 14, tint: [0xccf0ff, 0xaaddff, 0xffffff],
         blendMode: 'ADD', emitting: false,
       }).setDepth(9);
       frostMist.explode();
 
-      this.time.delayedCall(3000, () => { iceShards.destroy(); frostMist.destroy(); });
+      this.time.delayedCall(4000, () => { iceShards.destroy(); snowfall.destroy(); frostMist.destroy(); });
 
       const frozenPatch = this.add.graphics().setDepth(10);
       frozenPatch.fillStyle(0x88ddff, 0.15); frozenPatch.fillCircle(x, y, 16);
       frozenPatch.fillStyle(0xccf0ff, 0.1); frozenPatch.fillCircle(x, y, 28);
-      frozenPatch.fillStyle(0xaaddff, 0.06); frozenPatch.fillCircle(x, y, 42);
-      frozenPatch.lineStyle(1, 0xffffff, 0.15);
-      frozenPatch.strokeCircle(x, y, 20);
-      frozenPatch.strokeCircle(x, y, 34);
+      drawHex(frozenPatch, x, y, 22);
+      frozenPatch.fillStyle(0xaaddff, 0.06);
+      frozenPatch.fillPath();
+      drawHex(frozenPatch, x, y, 38);
+      frozenPatch.fillStyle(0x88ddff, 0.04);
+      frozenPatch.fillPath();
+      frozenPatch.lineStyle(1, 0xffffff, 0.12);
+      drawHex(frozenPatch, x, y, 22); frozenPatch.strokePath();
+      drawHex(frozenPatch, x, y, 38); frozenPatch.strokePath();
       this.tweens.add({ targets: frozenPatch, alpha: 0, duration: 1500, delay: 200, ease: 'Quad.easeIn', onComplete: () => frozenPatch.destroy() });
       return;
     }
