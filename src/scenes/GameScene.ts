@@ -64,6 +64,8 @@ export class GameScene extends Phaser.Scene {
   private objectivesTexts: Phaser.GameObjects.Text[] = [];
   private objectiveIcons: Phaser.GameObjects.Image[] = [];
   private objPanel!: Phaser.GameObjects.GameObject;
+  private pauseBtn!: Phaser.GameObjects.Text;
+  private paused = false;
   private comboTimer = 0;
   private showComboText = false;
 
@@ -108,6 +110,7 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.comboCount = 0;
     this.isProcessing = false;
+    this.paused = false;
     this.selected = null;
     this.comboTimer = 0;
     this.showComboText = false;
@@ -257,6 +260,9 @@ export class GameScene extends Phaser.Scene {
     this.muteBtn?.setPosition(panelX + panelW - 12 * s - 90 * s - 20 * s, row2y);
     this.muteBtn?.setFontSize(`${Math.round(28 * s)}px`);
 
+    this.pauseBtn?.setPosition(panelX + panelW - 12 * s - 90 * s - 62 * s, row2y);
+    this.pauseBtn?.setFontSize(`${Math.round(28 * s)}px`);
+
     this.heartsText?.setPosition(panelX + 10 * s, row2y);
     this.heartsText?.setFontSize(`${Math.round(22 * s)}px`);
 
@@ -350,6 +356,15 @@ export class GameScene extends Phaser.Scene {
     this.muteBtn.on('pointerdown', () => {
       const muted = sound.toggleMute();
       this.muteBtn.setText(muted ? '\u{1F507}' : '\u{1F50A}');
+    });
+
+    this.pauseBtn = this.add.text(panelX + panelW - 12 * s - 90 * s - 62 * s, row2y, '\u23F8', {
+      fontSize: `${Math.round(28 * s)}px`,
+    }).setOrigin(1, 0).setDepth(3).setInteractive({ useHandCursor: true });
+    this.pauseBtn.on('pointerdown', () => {
+      if (this.paused) return;
+      this.paused = true;
+      this.showPauseModal();
     });
 
     const lives = loadLives();
@@ -448,6 +463,8 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     const dt = Math.min(delta, 50);
+
+    if (this.paused) return;
 
     if (!this.isProcessing && !this.levelComplete) {
       if (this.isMovesMode) {
@@ -1689,117 +1706,200 @@ export class GameScene extends Phaser.Scene {
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, w, h);
 
-    const panelW = Math.min(300 * s, w * 0.85);
+    const panelW = Math.min(320 * s, w * 0.9);
     const panelH = 420 * s;
     const px = w / 2;
     const py = h / 2;
 
-    const panelContainer = this.add.container(0, 0).setDepth(201);
+    const panely = py - panelH / 2;
 
-    const panelImg = this.add.image(px, py, 'wood_panel').setDepth(0);
-    panelImg.setDisplaySize(panelW, panelH);
-    panelContainer.add(panelImg);
+    const panel = this.add.image(px, py, 'wood_panel').setDepth(201);
+    panel.setDisplaySize(panelW, panelH);
 
-    const panelBorder = this.add.graphics().setDepth(0);
-    panelBorder.lineStyle(3 * s, 0xffd700, 0.7);
-    panelBorder.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
-    panelContainer.add(panelBorder);
+    const panelBorder = this.add.graphics().setDepth(201);
+    panelBorder.lineStyle(3 * s, 0xffd700, 0.6);
+    panelBorder.strokeRoundedRect(px - panelW / 2, panely, panelW, panelH, 20 * s);
 
     const heartsStr = '\u2764'.repeat(3);
-    const title = this.add.text(px, py - 140 * s, heartsStr, {
+    this.add.text(px, panely + 36 * s, heartsStr, {
       fontSize: `${Math.round(44 * s)}px`, color: '#ff4d6d',
-    }).setOrigin(0.5).setDepth(1);
-    panelContainer.add(title);
+    }).setOrigin(0.5).setDepth(202);
 
-    const label = this.add.text(px, py - 102 * s, '3 LIVES', {
+    this.add.text(px, panely + 74 * s, '3 LIVES', {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(1);
-    panelContainer.add(label);
+    }).setOrigin(0.5).setDepth(202);
 
-    const divY = py - 76 * s;
-    const divider = this.add.graphics().setDepth(1);
+    const divider = this.add.graphics().setDepth(202);
     divider.lineStyle(1 * s, 0x8b6914, 0.4);
-    divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
-    panelContainer.add(divider);
+    divider.lineBetween(px - panelW / 2 + 30 * s, panely + 104 * s, px + panelW / 2 - 30 * s, panely + 104 * s);
 
-    const coinIcon = this.add.text(px, py - 50 * s, '\u{1FA99}', {
+    this.add.text(px, panely + 130 * s, '\u{1FA99}', {
       fontSize: `${Math.round(22 * s)}px`,
-    }).setOrigin(0.5).setDepth(1);
-    panelContainer.add(coinIcon);
+    }).setOrigin(0.5).setDepth(202);
 
-    const infoText = this.add.text(px, py - 22 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+    this.add.text(px, panely + 158 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
-    }).setOrigin(0.5).setDepth(1);
-    panelContainer.add(infoText);
+    }).setOrigin(0.5).setDepth(202);
 
-    const btnW = Math.min(220 * s, panelW - 50 * s);
+    const btnW = Math.min(240 * s, panelW - 40 * s);
     const btnH = 52 * s;
-    const buyBtnX = px - btnW / 2;
-    const buyBtnY = py + 6 * s;
+    const buyBtnY = panely + 188 * s;
 
-    const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(1);
-    buyPanel.setDisplaySize(btnW, btnH);
-    panelContainer.add(buyPanel);
+    const buyPanelBg = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(202);
+    buyPanelBg.setDisplaySize(btnW, btnH);
 
-    const buyBorder = this.add.graphics().setDepth(1);
-    buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
-    buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
-    panelContainer.add(buyBorder);
+    const buyBorder = this.add.graphics().setDepth(202);
+    buyBorder.lineStyle(2.5 * s, 0x8b6914, 0.8);
+    buyBorder.strokeRoundedRect(px - btnW / 2, buyBtnY, btnW, btnH, 14 * s);
 
     const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(2).setInteractive({ useHandCursor: true });
-    panelContainer.add(buyText);
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(203).setInteractive({ useHandCursor: true });
     buyText.on('pointerover', () => {
       buyBorder.clear();
-      buyBorder.lineStyle(3 * s, 0xffd700, 1);
-      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+      buyBorder.lineStyle(3.5 * s, 0xffd700, 1);
+      buyBorder.strokeRoundedRect(px - btnW / 2, buyBtnY, btnW, btnH, 14 * s);
       buyText.setColor('#ffffff');
     });
     buyText.on('pointerout', () => {
       buyBorder.clear();
-      buyBorder.lineStyle(2 * s, 0x8b6914, 0.7);
-      buyBorder.strokeRoundedRect(buyBtnX, buyBtnY, btnW, btnH, 14 * s);
+      buyBorder.lineStyle(2.5 * s, 0x8b6914, 0.8);
+      buyBorder.strokeRoundedRect(px - btnW / 2, buyBtnY, btnW, btnH, 14 * s);
       buyText.setColor('#ffd700');
     });
     buyText.on('pointerdown', () => {
       if (!buyLives()) return;
-      overlay.destroy(); panelContainer.destroy();
+      overlay.destroy(); panel.destroy(); panelBorder.destroy(); divider.destroy();
+      buyPanelBg.destroy(); buyBorder.destroy(); buyText.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+      this.children.list.filter(c => c.type === 'Text' && c.depth >= 202).forEach(c => c.destroy());
       onBuy();
     });
 
-    const cancelBtnW = Math.min(160 * s, panelW * 0.5);
-    const cancelBtnH = 44 * s;
-    const cancelBtnX = px - cancelBtnW / 2;
-    const cancelBtnY = buyBtnY + btnH + 20 * s;
+    const cancelBtnW = Math.min(180 * s, panelW * 0.55);
+    const cancelBtnH = 48 * s;
+    const cancelBtnY = buyBtnY + btnH + 24 * s;
 
-    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(1);
+    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(202);
     cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
-    panelContainer.add(cancelPanel);
 
-    const cancelBorder = this.add.graphics().setDepth(1);
-    cancelBorder.lineStyle(2 * s, 0x4a3a6a, 0.6);
-    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 12 * s);
-    panelContainer.add(cancelBorder);
+    const cancelBorder = this.add.graphics().setDepth(202);
+    cancelBorder.lineStyle(2.5 * s, 0x4a3a6a, 0.7);
+    cancelBorder.strokeRoundedRect(px - cancelBtnW / 2, cancelBtnY, cancelBtnW, cancelBtnH, 14 * s);
 
     const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CLOSE', {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(2).setInteractive({ useHandCursor: true });
-    panelContainer.add(cancelText);
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(20 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(203).setInteractive({ useHandCursor: true });
     cancelText.on('pointerover', () => {
       cancelBorder.clear();
-      cancelBorder.lineStyle(2.5 * s, 0xa78bfa, 0.9);
-      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 12 * s);
+      cancelBorder.lineStyle(3 * s, 0xa78bfa, 1);
+      cancelBorder.strokeRoundedRect(px - cancelBtnW / 2, cancelBtnY, cancelBtnW, cancelBtnH, 14 * s);
       cancelText.setColor('#ffffff');
     });
     cancelText.on('pointerout', () => {
       cancelBorder.clear();
-      cancelBorder.lineStyle(2 * s, 0x4a3a6a, 0.6);
-      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 12 * s);
+      cancelBorder.lineStyle(2.5 * s, 0x4a3a6a, 0.7);
+      cancelBorder.strokeRoundedRect(px - cancelBtnW / 2, cancelBtnY, cancelBtnW, cancelBtnH, 14 * s);
       cancelText.setColor('#a78bfa');
     });
     cancelText.on('pointerdown', () => {
-      overlay.destroy(); panelContainer.destroy();
+      overlay.destroy(); panel.destroy(); panelBorder.destroy(); divider.destroy();
+      buyPanelBg.destroy(); buyBorder.destroy(); buyText.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+      this.children.list.filter(c => c.type === 'Text' && c.depth >= 202).forEach(c => c.destroy());
+    });
+  }
+
+  private showPauseModal() {
+    const w = this.camW, h = this.camH;
+    const s = this.sf;
+
+    const overlay = this.add.graphics().setDepth(200);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, w, h);
+
+    const panelW = Math.min(300 * s, w * 0.85);
+    const panelH = 380 * s;
+    const px = w / 2;
+    const panely = h / 2 - panelH / 2;
+
+    const panel = this.add.image(px, panely + panelH / 2, 'wood_panel').setDepth(201);
+    panel.setDisplaySize(panelW, panelH);
+
+    const panelBorder = this.add.graphics().setDepth(201);
+    panelBorder.lineStyle(3 * s, 0xffd700, 0.6);
+    panelBorder.strokeRoundedRect(px - panelW / 2, panely, panelW, panelH, 20 * s);
+
+    this.add.text(px, panely + 40 * s, 'PAUSED', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(34 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(202);
+
+    const btnW = Math.min(220 * s, panelW - 40 * s);
+    const btnH = 48 * s;
+    const btnLabels = ['RESUME', 'RESTART', 'LEVEL SELECT', 'MENU'];
+    const btnActions = [
+      () => {
+        destroyAll();
+        this.paused = false;
+      },
+      () => {
+        destroyAll();
+        this.paused = false;
+        this.scene.start('GameScene', { levelId: this.levelDef.id });
+      },
+      () => {
+        destroyAll();
+        this.paused = false;
+        this.scene.start('LevelSelectScene');
+      },
+      () => {
+        destroyAll();
+        this.paused = false;
+        this.scene.start('MenuScene');
+      },
+    ];
+
+    const destroyAll = () => {
+      overlay.destroy(); panel.destroy(); panelBorder.destroy();
+      btnTexts.forEach(t => t.destroy());
+      btnBorders.forEach(b => b.destroy());
+      btnWoods.forEach(p => p.destroy());
+    };
+
+    const btnTexts: Phaser.GameObjects.Text[] = [];
+    const btnBorders: Phaser.GameObjects.Graphics[] = [];
+    const btnWoods: Phaser.GameObjects.Image[] = [];
+    const startY = panely + 90 * s;
+
+    btnLabels.forEach((label, i) => {
+      const by = startY + i * (btnH + 16 * s);
+      const wood = this.add.image(px, by + btnH / 2, 'wood_panel').setDepth(202);
+      wood.setDisplaySize(btnW, btnH);
+      btnWoods.push(wood);
+
+      const border = this.add.graphics().setDepth(202);
+      border.lineStyle(2 * s, 0x8b6914, 0.8);
+      border.strokeRoundedRect(px - btnW / 2, by, btnW, btnH, 14 * s);
+      btnBorders.push(border);
+
+      const text = this.add.text(px, by + btnH / 2, label, {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(17 * s)}px`, color: label === 'RESUME' ? '#4ade80' : '#ffd700', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(203).setInteractive({ useHandCursor: true });
+      btnTexts.push(text);
+
+      text.on('pointerover', () => {
+        border.clear();
+        border.lineStyle(3 * s, label === 'RESUME' ? 0x4ade80 : 0xffd700, 1);
+        border.strokeRoundedRect(px - btnW / 2, by, btnW, btnH, 14 * s);
+        text.setColor('#ffffff');
+      });
+      text.on('pointerout', () => {
+        border.clear();
+        border.lineStyle(2.5 * s, 0x8b6914, 0.8);
+        border.strokeRoundedRect(px - btnW / 2, by, btnW, btnH, 14 * s);
+        text.setColor(label === 'RESUME' ? '#4ade80' : '#ffd700');
+      });
+      text.on('pointerdown', btnActions[i]);
     });
   }
 
