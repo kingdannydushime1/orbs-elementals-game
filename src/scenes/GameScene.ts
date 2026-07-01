@@ -135,6 +135,7 @@ export class GameScene extends Phaser.Scene {
 
     this.drawBackground();
     this.initGrid();
+    this.applyStartSpecials();
     this.drawBoard();
     this.createUI();
     this.handleResize(this.cameras.main.width, this.cameras.main.height);
@@ -674,6 +675,20 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
+  private applyStartSpecials() {
+    if (!this.levelDef.startSpecials) return;
+    for (const sp of this.levelDef.startSpecials) {
+      const orb = this.grid[sp.row]?.[sp.col];
+      if (!orb) continue;
+      const map: Record<string, SpecialType> = {
+        StripedH: SpecialType.StripedH, StripedV: SpecialType.StripedV,
+        Bomb: SpecialType.Bomb, ColorBomb: SpecialType.ColorBomb,
+      };
+      orb.special = map[sp.type] ?? SpecialType.None;
+      if (sp.element !== undefined) orb.type = sp.element;
+    }
+  }
+
   private drawBoard() {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
@@ -916,7 +931,109 @@ export class GameScene extends Phaser.Scene {
     const orbA = this.grid[r1][c1];
     const orbB = this.grid[r2][c2];
 
-    if ((orbA && orbA.special === SpecialType.ColorBomb) || (orbB && orbB.special === SpecialType.ColorBomb)) {
+    if (orbA && orbB && orbA.special !== SpecialType.None && orbB.special !== SpecialType.None) {
+      if (this.isMovesMode) {
+        this.movesLeft--;
+        if (this.movesText) this.movesText.setText(`Moves: ${this.movesLeft}`);
+      }
+      this.swapInGrid(r1, c1, r2, c2);
+      await this.animateSwap(r1, c1, r2, c2);
+
+      const toDestroy = new Set<string>();
+      const add = (r: number, c: number) => {
+        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols && !this.isCrate(r, c) && this.grid[r][c]) {
+          toDestroy.add(`${r},${c}`);
+        }
+      };
+
+      const s1 = orbA.special, s2 = orbB.special;
+      const midR = (r1 + r2) >> 1;
+      const midC = (c1 + c2) >> 1;
+
+      if (s1 === SpecialType.ColorBomb || s2 === SpecialType.ColorBomb) {
+        const other = s1 === SpecialType.ColorBomb ? orbB : orbA;
+        if (other.special === SpecialType.StripedH) {
+          for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+              const o = this.grid[r][c];
+              if (o && o.type === other.type && !this.isCrate(r, c)) {
+                toDestroy.add(`${r},${c}`);
+                for (let cc = 0; cc < this.cols; cc++) add(r, cc);
+              }
+            }
+          }
+        } else if (other.special === SpecialType.StripedV) {
+          for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+              const o = this.grid[r][c];
+              if (o && o.type === other.type && !this.isCrate(r, c)) {
+                toDestroy.add(`${r},${c}`);
+                for (let rr = 0; rr < this.rows; rr++) add(rr, c);
+              }
+            }
+          }
+        } else {
+          for (let r = 0; r < this.rows; r++)
+            for (let c = 0; c < this.cols; c++)
+              if (!this.isCrate(r, c) && this.grid[r][c]) add(r, c);
+        }
+      } else if (
+        (s1 === SpecialType.StripedH && s2 === SpecialType.StripedV) ||
+        (s1 === SpecialType.StripedV && s2 === SpecialType.StripedH)
+      ) {
+        for (let c = 0; c < this.cols; c++) add(midR, c);
+        for (let r = 0; r < this.rows; r++) add(r, midC);
+      } else if (s1 === SpecialType.StripedH && s2 === SpecialType.StripedH) {
+        for (let dr = -1; dr <= 1; dr++) {
+          const rr = midR + dr;
+          if (rr >= 0 && rr < this.rows) for (let c = 0; c < this.cols; c++) add(rr, c);
+        }
+      } else if (s1 === SpecialType.StripedV && s2 === SpecialType.StripedV) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const cc = midC + dc;
+          if (cc >= 0 && cc < this.cols) for (let r = 0; r < this.rows; r++) add(r, cc);
+        }
+      } else if (
+        (s1 === SpecialType.StripedH && s2 === SpecialType.Bomb) ||
+        (s1 === SpecialType.Bomb && s2 === SpecialType.StripedH)
+      ) {
+        for (let c = 0; c < this.cols; c++) add(midR, c);
+        for (let c = 0; c < this.cols; c++)
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++)
+              add(midR + dr, c + dc);
+      } else if (
+        (s1 === SpecialType.StripedV && s2 === SpecialType.Bomb) ||
+        (s1 === SpecialType.Bomb && s2 === SpecialType.StripedV)
+      ) {
+        for (let r = 0; r < this.rows; r++) add(r, midC);
+        for (let r = 0; r < this.rows; r++)
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++)
+              add(r + dr, midC + dc);
+      } else if (s1 === SpecialType.Bomb && s2 === SpecialType.Bomb) {
+        for (let dr = -2; dr <= 2; dr++)
+          for (let dc = -2; dc <= 2; dc++)
+            add(midR + dr, midC + dc);
+      }
+
+      this.comboCount = 0;
+      const destroyArray = Array.from(toDestroy).map(k => {
+        const [r, c] = k.split(',').map(Number);
+        return { row: r, col: c };
+      });
+      await this.processMatches(destroyArray, true);
+      if (this.isMovesMode && this.movesLeft <= 0 && !this.levelComplete) {
+        this.gameOver(false);
+        this.isProcessing = false;
+        return;
+      }
+      if (!this.hasValidMoves()) await this.shuffleBoard();
+      this.isProcessing = false;
+      return;
+    }
+
+    if (orbA && orbA.special === SpecialType.ColorBomb || orbB && orbB.special === SpecialType.ColorBomb) {
       const cb = orbA?.special === SpecialType.ColorBomb ? orbA : orbB;
       const other = cb === orbA ? orbB : orbA;
       if (cb && other && other.special === SpecialType.None) {
@@ -1409,7 +1526,7 @@ export class GameScene extends Phaser.Scene {
     overlay.fillRect(0, 0, w, h);
 
     const panelW = Math.min(won ? 500 * s : 440 * s, w * 0.9);
-    const panelH = won ? 600 * s : 380 * s;
+    const panelH = won ? 600 * s : 440 * s;
     const panelX = w / 2;
     const panelY = h / 2;
     const panelR = 20 * s;
@@ -1500,6 +1617,22 @@ export class GameScene extends Phaser.Scene {
         if (!hasLives()) { this.showBuyLivesModal(() => this.scene.start('GameScene', { levelId: this.levelDef.id + 1 })); return; }
         if (hasNext) { saveLastLevel(this.levelDef.id + 1); this.scene.start('GameScene', { levelId: this.levelDef.id + 1 }); }
         else this.scene.start('LevelSelectScene');
+      });
+      btnY += btnH + 14 * s;
+    } else {
+      makeBtnInteractive('EXTRA MOVES (+5) - 50\u{1FA99}', btnY, 400, () => {
+        const coins = loadCoins();
+        if (coins < 50) return;
+        if (this.isMovesMode) {
+          addCoins(-50);
+          this.movesLeft += 5;
+          if (this.movesText) this.movesText.setText(`Moves: ${this.movesLeft}`);
+        } else {
+          addCoins(-50);
+          this.timeLeft += 15;
+        }
+        overlay.destroy(); panel.destroy();
+        this.isProcessing = false;
       });
       btnY += btnH + 14 * s;
     }
