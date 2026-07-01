@@ -7,6 +7,7 @@ const ELEMENT_GLOWS = [0xff8844, 0x66bbff, 0xaa8855, 0x66ee66];
 
 export class LevelSelectScene extends Phaser.Scene {
   private pendingLevelId = 0;
+  private resizeHandler: (() => void) | null = null;
 
   constructor() {
     super({ key: 'LevelSelectScene' });
@@ -18,6 +19,13 @@ export class LevelSelectScene extends Phaser.Scene {
     const s = Math.min(w, h) / 540;
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
+
+    this.events.on('shutdown', () => {
+      if (this.resizeHandler) {
+        this.scale.off('resize', this.resizeHandler);
+        this.resizeHandler = null;
+      }
+    });
 
     this.add.image(w / 2, h / 2, 'background').setDepth(-2).setDisplaySize(w, h);
 
@@ -98,9 +106,9 @@ export class LevelSelectScene extends Phaser.Scene {
       }).setOrigin(0, 0.5).setDepth(3);
     }
 
-    this.scale.on('resize', () => {
-      this.scene.restart();
-    });
+    if (this.resizeHandler) this.scale.off('resize', this.resizeHandler);
+    this.resizeHandler = () => this.scene.restart();
+    this.scale.on('resize', this.resizeHandler);
   }
 
   private drawPath(points: { x: number; y: number }[], s: number, w: number, h: number) {

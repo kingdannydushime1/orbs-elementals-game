@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { sound } from '../utils/sound';
 import { LevelDef, levels, getLevel } from '../levels';
-import { deductLife, addCoins, COINS_PER_WIN, hasLives, loadCoins, loadLives, MAX_LIVES, saveLives, buyLives, LIVES_COST, saveLastLevel, loadLastLevel } from '../utils/save';
+import { deductLife, addCoins, COINS_PER_WIN, hasLives, loadCoins, loadLives, MAX_LIVES, saveLives, buyLives, LIVES_COST, saveLastLevel, loadLastLevel, spendCoins } from '../utils/save';
 
 const ELEMENT_COLORS: Record<number, number> = {
-  0: 0xff5500, 1: 0x3399ff, 2: 0x996633, 3: 0x33cc33,
+  0: 0xff5500, 1: 0x3399ff, 2: 0x996633, 3: 0x33cc33, 4: 0xaa44ff,
+  5: 0x88ddff, 6: 0xccdd88,
 };
 
 const enum SpecialType {
@@ -86,6 +87,7 @@ export class GameScene extends Phaser.Scene {
 
   private crates: Map<string, { hits: number; graphic: Phaser.GameObjects.Graphics }> = new Map();
   private aliveCrates: Set<string> = new Set();
+  private resizeHandler: ((gameSize: any) => void) | null = null;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -127,11 +129,18 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.events.on('shutdown', () => {
+      if (this.resizeHandler) {
+        this.scale.off('resize', this.resizeHandler);
+        this.resizeHandler = null;
+      }
+    });
+
     this.initObjectives();
     this.recalcLayout();
-    this.scale.on('resize', (gameSize: any) => {
-      this.handleResize(gameSize.width, gameSize.height);
-    });
+    if (this.resizeHandler) this.scale.off('resize', this.resizeHandler);
+    this.resizeHandler = (gameSize: any) => this.handleResize(gameSize.width, gameSize.height);
+    this.scale.on('resize', this.resizeHandler);
 
     this.drawBackground();
     this.initGrid();
@@ -387,7 +396,7 @@ export class GameScene extends Phaser.Scene {
     this.objectivesTexts = [];
     this.objectiveIcons.forEach(i => i.destroy());
     this.objectiveIcons = [];
-    const objKeys = ['orb_0', 'orb_1', 'orb_2', 'orb_3'];
+    const objKeys = ['orb_0', 'orb_1', 'orb_2', 'orb_3', 'orb_4', 'orb_5', 'orb_6'];
     this.objectives.forEach((obj, i) => {
       const oy = row3y + (44 * s) * (i + 1);
       const iconY = oy + 6 * s;
@@ -427,7 +436,7 @@ export class GameScene extends Phaser.Scene {
     if (obj.type === 'score') return `Coins: ${obj.current} / ${obj.target}`;
     if (obj.type === 'destroy_ice') return `Ice: ${obj.current} / ${obj.target}`;
     if (obj.type === 'destroy_crates') return `Crates: ${obj.current} / ${obj.target}`;
-    const elName = obj.element !== undefined ? ['Fire', 'Water', 'Earth', 'Leaf'][obj.element] : '';
+    const elName = obj.element !== undefined ? ['Fire', 'Water', 'Earth', 'Leaf', 'Lightning', 'Ice', 'Wind'][obj.element] : '';
     return `${elName}: ${obj.current} / ${obj.target}`;
   }
 
@@ -454,7 +463,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.showComboText) {
-      this.comboTimer -= dt * 0.016;
+      this.comboTimer -= dt / 1000;
       if (this.comboTimer <= 0) this.showComboText = false;
     }
 
@@ -468,8 +477,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private bakeOrbTextures() {
-    const keys = ['fire_orb', 'water_orb', 'rock_orb', 'leaf_orb'];
-    for (let i = 0; i < 4; i++) {
+    const keys = ['fire_orb', 'water_orb', 'rock_orb', 'leaf_orb', 'lightning_orb', 'ice_orb', 'wind_orb'];
+    for (let i = 0; i < keys.length; i++) {
       const size = 128;
       const canvas = this.textures.createCanvas(`orb_${i}`, size, size);
       if (!canvas) continue;
@@ -737,6 +746,7 @@ export class GameScene extends Phaser.Scene {
         g.lineBetween(x - 5, y - half + 2, x - 5, y + half - 2);
         g.lineBetween(x + 5, y - half + 2, x + 5, y + half - 2);
       }
+      orb.specialOverlay = g;
     } else if (orb.special === SpecialType.Bomb) {
       g.fillStyle(0x000000, 0.5);
       g.fillCircle(x, y, half * 0.55);
@@ -833,16 +843,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private redrawCrates() {
-    const entries = Array.from(this.crates.entries());
-    for (const [, crate] of entries) {
+    const savedHits = new Map<string, number>();
+    for (const [key, crate] of this.crates) {
+      savedHits.set(key, crate.hits);
       crate.graphic.destroy();
     }
     this.crates.clear();
     for (const key of this.aliveCrates) {
-      if (this.crates.has(key)) continue;
       const [r, c] = key.split(',').map(Number);
-      const cd = this.levelDef.crates.find(cd => cd.row === r && cd.col === c);
-      if (cd) this.createCrate(cd.row, cd.col, cd.hits || 1);
+      const hits = savedHits.get(key) ?? (this.levelDef.crates.find(cd => cd.row === r && cd.col === c)?.hits || 1);
+      this.createCrate(r, c, hits);
     }
   }
 
@@ -1425,12 +1435,14 @@ export class GameScene extends Phaser.Scene {
         if (this.isCrate(r, c)) continue;
         if (this.grid[r][c] === null) {
           const maxType = this.levelDef.orbTypes;
-          let type = Phaser.Math.Between(0, maxType - 1);
-          if (r >= 2 && this.grid[r - 1]?.[c]?.type === type && this.grid[r - 2]?.[c]?.type === type) {
-            type = (type + 1) % maxType;
-            if (r >= 2 && this.grid[r - 1]?.[c]?.type === type && this.grid[r - 2]?.[c]?.type === type) type = (type + 1) % maxType;
+          const candidates = Array.from({ length: maxType }, (_, i) => i);
+          Phaser.Utils.Array.Shuffle(candidates);
+          let type = candidates[0];
+          for (const t of candidates) {
+            const vMatch = r >= 2 && this.grid[r - 1]?.[c]?.type === t && this.grid[r - 2]?.[c]?.type === t;
+            const hMatch = c >= 2 && this.grid[r]?.[c - 1]?.type === t && this.grid[r]?.[c - 2]?.type === t;
+            if (!vMatch && !hMatch) { type = t; break; }
           }
-          if (c >= 2 && this.grid[r]?.[c - 1]?.type === type && this.grid[r]?.[c - 2]?.type === type) type = (type + 1) % maxType;
 
           const startY = this.cellY(r) - emptyCount * (this.cell + this.gap);
           const s = this.add.sprite(this.cellX(c), startY, `orb_${type}`).setDepth(1);
@@ -1450,13 +1462,13 @@ export class GameScene extends Phaser.Scene {
   private hasValidMoves(): boolean {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
-        if (this.isCrate(r, c)) continue;
-        if (c + 1 < this.cols && !this.isCrate(r, c + 1)) {
+        if (this.isCrate(r, c) || !this.grid[r]?.[c]) continue;
+        if (c + 1 < this.cols && !this.isCrate(r, c + 1) && this.grid[r]?.[c + 1]) {
           this.swapInGrid(r, c, r, c + 1);
           if (this.findMatches().length > 0) { this.swapInGrid(r, c, r, c + 1); return true; }
           this.swapInGrid(r, c, r, c + 1);
         }
-        if (r + 1 < this.rows && !this.isCrate(r + 1, c)) {
+        if (r + 1 < this.rows && !this.isCrate(r + 1, c) && this.grid[r + 1]?.[c]) {
           this.swapInGrid(r, c, r + 1, c);
           if (this.findMatches().length > 0) { this.swapInGrid(r, c, r + 1, c); return true; }
           this.swapInGrid(r, c, r + 1, c);
@@ -1466,7 +1478,7 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
-  private async shuffleBoard(): Promise<void> {
+  private async shuffleBoard(depth = 0): Promise<void> {
     const types: number[] = [];
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
@@ -1492,7 +1504,14 @@ export class GameScene extends Phaser.Scene {
       for (let c = 0; c < this.cols; c++) {
         if (this.isCrate(r, c)) continue;
         const orb = this.grid[r][c];
-        if (orb?.sprite) orb.sprite.setTexture(`orb_${orb.type}`);
+        if (orb) {
+          if (orb.special !== SpecialType.None) {
+            if (orb.specialOverlay) { orb.specialOverlay.destroy(); orb.specialOverlay = null; }
+            if (orb.specialText) { orb.specialText.destroy(); orb.specialText = null; }
+            orb.special = SpecialType.None;
+          }
+          if (orb.sprite) orb.sprite.setTexture(`orb_${orb.type}`);
+        }
       }
     }
 
@@ -1521,9 +1540,12 @@ export class GameScene extends Phaser.Scene {
     const w = this.camW, h = this.camH;
     const s = this.sf;
 
+    const goUI: Phaser.GameObjects.GameObject[] = [];
+
     const overlay = this.add.graphics().setDepth(100);
     overlay.fillStyle(0x000000, 0.7);
     overlay.fillRect(0, 0, w, h);
+    goUI.push(overlay);
 
     const panelW = Math.min(won ? 500 * s : 440 * s, w * 0.9);
     const panelH = won ? 600 * s : 440 * s;
@@ -1533,6 +1555,7 @@ export class GameScene extends Phaser.Scene {
 
     const panel = this.add.graphics().setDepth(100);
     this.drawWoodPanelGfx(panel, panelX, panelY, panelW, panelH, panelR);
+    goUI.push(panel);
 
     let yOff = panelY - panelH / 2;
 
@@ -1542,6 +1565,7 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(38 * s)}px`, color: titleColor, fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(101).setAlpha(0);
     this.tweens.add({ targets: title, alpha: 1, duration: 400, delay: 100, ease: 'Back.easeOut' });
+    goUI.push(title);
 
     if (won) {
       const stars = this.countStars(this.score);
@@ -1553,11 +1577,13 @@ export class GameScene extends Phaser.Scene {
         fontFamily: 'Georgia, serif', fontSize: `${Math.round(46 * s)}px`, color: '#fbbf24',
       }).setOrigin(0.5).setDepth(101).setAlpha(0);
       this.tweens.add({ targets: starText, alpha: 1, scaleX: { from: 2, to: 1 }, scaleY: { from: 2, to: 1 }, duration: 600, delay: 300, ease: 'Elastic.easeOut' });
+      goUI.push(starText);
 
       const levelLabel = this.add.text(panelX, yOff + 118 * s, `Level ${this.levelDef.id}`, {
         fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
       }).setOrigin(0.5).setDepth(101).setAlpha(0);
       this.tweens.add({ targets: levelLabel, alpha: 1, duration: 400, delay: 350, ease: 'Quad.easeOut' });
+      goUI.push(levelLabel);
     }
 
     const scoreLabelY = yOff + (won ? 152 : 86) * s;
@@ -1565,17 +1591,20 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#a78bfa', fontStyle: 'italic',
     }).setOrigin(0.5).setDepth(101).setAlpha(0);
     this.tweens.add({ targets: scoreLabel, alpha: 1, duration: 400, delay: won ? 400 : 200, ease: 'Quad.easeOut' });
+    goUI.push(scoreLabel);
 
     const coinCenterY = scoreLabelY + (won ? 38 : 30) * s;
     const coinIconGO = this.add.text(panelX - 58 * s, coinCenterY, '\u{1FA99}', {
       fontSize: `${Math.round(40 * s)}px`,
     }).setOrigin(0.5).setDepth(101).setAlpha(0).setPadding(0, 4, 0, 4);
     this.tweens.add({ targets: coinIconGO, alpha: 1, duration: 400, delay: won ? 450 : 250, ease: 'Quad.easeOut' });
+    goUI.push(coinIconGO);
 
     const scoreVal = this.add.text(panelX + 52 * s, coinCenterY, String(this.score), {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(54 * s)}px`, color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(101).setAlpha(0);
     this.tweens.add({ targets: scoreVal, alpha: 1, duration: 400, delay: won ? 500 : 300, ease: 'Quad.easeOut' });
+    goUI.push(scoreVal);
 
     const btnW = Math.min(260 * s, panelW - 40 * s);
     const btnH = 60 * s;
@@ -1592,6 +1621,7 @@ export class GameScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(101).setAlpha(0);
 
       const group = [wood, border, txt];
+      goUI.push(wood, border, txt);
       this.tweens.add({ targets: group, alpha: 1, duration: 400, delay, ease: 'Quad.easeOut' });
 
       txt.setInteractive({ useHandCursor: true });
@@ -1610,6 +1640,11 @@ export class GameScene extends Phaser.Scene {
       txt.on('pointerdown', cb);
     };
 
+    const destroyGO = () => {
+      for (const obj of goUI) obj.destroy();
+      goUI.length = 0;
+    };
+
     if (won) {
       const hasNext = !!getLevel(this.levelDef.id + 1);
       const nextLabel = hasNext ? 'NEXT LEVEL' : 'YOU WIN!';
@@ -1621,17 +1656,15 @@ export class GameScene extends Phaser.Scene {
       btnY += btnH + 14 * s;
     } else {
       makeBtnInteractive('EXTRA MOVES (+5) - 50\u{1FA99}', btnY, 400, () => {
-        const coins = loadCoins();
-        if (coins < 50) return;
+        if (loadCoins() < 50) return;
+        spendCoins(50);
         if (this.isMovesMode) {
-          addCoins(-50);
           this.movesLeft += 5;
           if (this.movesText) this.movesText.setText(`Moves: ${this.movesLeft}`);
         } else {
-          addCoins(-50);
           this.timeLeft += 15;
         }
-        overlay.destroy(); panel.destroy();
+        destroyGO();
         this.isProcessing = false;
       });
       btnY += btnH + 14 * s;
@@ -2076,6 +2109,329 @@ export class GameScene extends Phaser.Scene {
       crater.fillStyle(0x664422, 0.25); crater.fillCircle(x, y, 18);
       crater.fillStyle(0x553311, 0.12); crater.fillCircle(x, y, 30);
       this.tweens.add({ targets: crater, alpha: 0, duration: 1000, delay: 200, ease: 'Quad.easeIn', onComplete: () => crater.destroy() });
+      return;
+    }
+
+    if (type === 4) {
+      const w = this.camW, h = this.camH;
+      const s = this.sf;
+      this.cameras.main.shake(350, 0.025);
+
+      const flashWhite = this.add.graphics().setDepth(50);
+      flashWhite.fillStyle(0xffffff, 0.35); flashWhite.fillRect(0, 0, w, h);
+      this.tweens.add({ targets: flashWhite, alpha: 0, duration: 80, ease: 'Quad.easeOut', onComplete: () => flashWhite.destroy() });
+
+      const flashPurple = this.add.graphics().setDepth(49);
+      flashPurple.fillStyle(0xaa44ff, 0.25); flashPurple.fillRect(0, 0, w, h);
+      this.tweens.add({ targets: flashPurple, alpha: 0, duration: 200, ease: 'Quad.easeOut', delay: 30, onComplete: () => flashPurple.destroy() });
+
+      const strike = this.add.graphics().setDepth(13);
+      const boltSegs = (minR: number, maxR: number, forks: number) => {
+        strike.lineStyle(3 * (1 - forks * 0.15), 0xffffff, 0.9 - forks * 0.15);
+        for (let f = 0; f < 1 + forks; f++) {
+          const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+          const dist = Phaser.Math.Between(minR, maxR);
+          const segments = 5 + Phaser.Math.Between(0, 3);
+          let cx = x, cy = y;
+          strike.beginPath(); strike.moveTo(cx, cy);
+          for (let i = 0; i < segments; i++) {
+            const t = (i + 1) / segments;
+            const targetX = x + Math.cos(angle) * dist * t;
+            const targetY = y + Math.sin(angle) * dist * t;
+            const jitter = dist * 0.03 * (1 - t);
+            cx += (targetX - cx) + Phaser.Math.FloatBetween(-jitter, jitter);
+            cy += (targetY - cy) + Phaser.Math.FloatBetween(-jitter, jitter);
+            strike.lineTo(cx, cy);
+          }
+          strike.strokePath();
+          const subAngle = angle + Phaser.Math.FloatBetween(-0.4, 0.4);
+          const subDist = dist * Phaser.Math.FloatBetween(0.3, 0.6);
+          if (subDist > 20) {
+            strike.lineStyle(2 * (1 - forks * 0.15), 0xdd88ff, 0.5);
+            strike.beginPath(); strike.moveTo(cx, cy);
+            let scx = cx, scy = cy;
+            for (let i = 0; i < 3; i++) {
+              scx += Math.cos(subAngle) * subDist * 0.33 + Phaser.Math.FloatBetween(-8, 8);
+              scy += Math.sin(subAngle) * subDist * 0.33 + Phaser.Math.FloatBetween(-8, 8);
+              strike.lineTo(scx, scy);
+            }
+            strike.strokePath();
+          }
+        }
+      };
+      boltSegs(30, 90, 3);
+
+      this.tweens.add({
+        targets: strike, alpha: 0, duration: 300, delay: 120,
+        ease: 'Quad.easeOut', onComplete: () => this.time.delayedCall(100, () => strike.destroy()),
+      });
+
+      const glowStrike = this.add.graphics().setDepth(12);
+      boltSegs.call(glowStrike, 20, 70, 2);
+
+      const boltGlow = this.add.graphics().setDepth(12);
+      boltGlow.lineStyle(8, 0xcc66ff, 0.3);
+      boltGlow.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r = Phaser.Math.Between(40, 80);
+        boltGlow.moveTo(x, y); boltGlow.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+      boltGlow.strokePath();
+      this.tweens.add({ targets: boltGlow, alpha: 0, duration: 250, delay: 80, ease: 'Quad.easeOut', onComplete: () => boltGlow.destroy() });
+
+      this.time.delayedCall(500, () => { glowStrike.destroy(); });
+
+      const sparkBurst = this.add.particles(x, y, 'particle_spark', {
+        speed: { min: 250, max: 700 }, angle: { min: 0, max: 360 },
+        scale: { start: 2.5 * s, end: 0.1 * s },
+        alpha: { start: 1, end: 0 }, rotate: { min: -180, max: 180 },
+        lifespan: { min: 200, max: 500 }, quantity: 40,
+        tint: [0xffffff, 0xee88ff, 0xcc66ff, 0xaa44ff],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(10);
+      sparkBurst.explode();
+
+      const arcChain = this.add.particles(x, y, 'particle_spark', {
+        speed: { min: 100, max: 400 }, angle: { min: 0, max: 360 },
+        scale: { start: 1.5 * s, end: 0.1 * s },
+        alpha: { start: 0.9, end: 0 }, rotate: { min: -360, max: 360 },
+        lifespan: { min: 400, max: 1000 }, quantity: 25,
+        tint: [0xcc66ff, 0xee88ff, 0xffffff, 0xff88cc],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(10);
+      arcChain.explode();
+
+      const plasma = this.add.particles(x, y, 'particle_fire_ember', {
+        speed: { min: 20, max: 120 }, angle: { min: 0, max: 360 },
+        gravityY: -40, scale: { start: 2.0 * s, end: 0 },
+        alpha: { start: 0.6, end: 0 }, lifespan: { min: 600, max: 1800 },
+        quantity: 18, tint: [0xcc66ff, 0xaa44ff, 0x8822dd],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(9);
+      plasma.explode();
+
+      this.time.delayedCall(2500, () => { sparkBurst.destroy(); arcChain.destroy(); plasma.destroy(); });
+
+      const groundPool = this.add.graphics().setDepth(10);
+      groundPool.fillStyle(0xaa44ff, 0.2); groundPool.fillCircle(x, y, 15);
+      groundPool.fillStyle(0xcc66ff, 0.12); groundPool.fillCircle(x, y, 28);
+      groundPool.fillStyle(0xee88ff, 0.06); groundPool.fillCircle(x, y, 40);
+      groundPool.fillStyle(0xffffff, 0.03); groundPool.fillCircle(x, y, 55);
+      this.tweens.add({ targets: groundPool, alpha: 0, duration: 1200, delay: 200, ease: 'Quad.easeIn', onComplete: () => groundPool.destroy() });
+      return;
+    }
+
+    if (type === 5) {
+      const w = this.camW, h = this.camH;
+      const s = this.sf;
+
+      const flash = this.add.graphics().setDepth(50);
+      flash.fillStyle(0xccf0ff, 0.18); flash.fillRect(0, 0, w, h);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 250, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
+
+      const crystalGfx = this.add.graphics().setDepth(13);
+      const drawCrystal = (cx: number, cy: number, size: number, color: number, alpha: number, points: number) => {
+        crystalGfx.fillStyle(color, alpha);
+        crystalGfx.beginPath();
+        for (let i = 0; i < points; i++) {
+          const a = (i / points) * Math.PI * 2 - Math.PI / 2;
+          const r = i % 2 === 0 ? size : size * Phaser.Math.FloatBetween(0.3, 0.6);
+          const px = cx + Math.cos(a) * r;
+          const py = cy + Math.sin(a) * r;
+          i === 0 ? crystalGfx.moveTo(px, py) : crystalGfx.lineTo(px, py);
+        }
+        crystalGfx.closePath(); crystalGfx.fill();
+        crystalGfx.lineStyle(1.5, 0xffffff, alpha * 0.5);
+        crystalGfx.strokePath();
+      };
+
+      drawCrystal(x, y, 12, 0xffffff, 0.9, 8);
+      drawCrystal(x + 30, y - 20, 8, 0xccf0ff, 0.7, 6);
+      drawCrystal(x - 25, y + 18, 7, 0xaaddff, 0.65, 6);
+      drawCrystal(x + 20, y + 28, 6, 0x88ddff, 0.6, 8);
+      drawCrystal(x - 18, y - 30, 9, 0xbbeeff, 0.75, 6);
+      drawCrystal(x + 40, y + 10, 5, 0xccf0ff, 0.5, 8);
+      drawCrystal(x - 38, y + 5, 6, 0xaaddff, 0.55, 6);
+
+      const frostLines = this.add.graphics().setDepth(12);
+      frostLines.lineStyle(2, 0xffffff, 0.5);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + Phaser.Math.FloatBetween(-0.08, 0.08);
+        const len = Phaser.Math.Between(40, 75);
+        frostLines.beginPath();
+        frostLines.moveTo(x, y);
+        let fx = x, fy = y;
+        const segs = 3 + Phaser.Math.Between(0, 2);
+        for (let j = 0; j < segs; j++) {
+          const t = (j + 1) / segs;
+          fx = x + Math.cos(a) * len * t + Phaser.Math.FloatBetween(-5, 5);
+          fy = y + Math.sin(a) * len * t + Phaser.Math.FloatBetween(-5, 5);
+          frostLines.lineTo(fx, fy);
+        }
+        frostLines.strokePath();
+        const branchAngle = a + Phaser.Math.FloatBetween(0.3, 0.8) * (Phaser.Math.Between(0, 1) * 2 - 1);
+        const branchLen = len * Phaser.Math.FloatBetween(0.2, 0.4);
+        frostLines.lineStyle(1, 0xccf0ff, 0.3);
+        if (branchLen > 10) {
+          frostLines.beginPath(); frostLines.moveTo(fx, fy);
+          frostLines.lineTo(fx + Math.cos(branchAngle) * branchLen, fy + Math.sin(branchAngle) * branchLen);
+          frostLines.strokePath();
+        }
+      }
+
+      this.tweens.add({
+        targets: [crystalGfx, frostLines],
+        alpha: 0, duration: 600, delay: 300,
+        ease: 'Quad.easeIn', onComplete: () => { crystalGfx.destroy(); frostLines.destroy(); },
+      });
+
+      const iceShards = this.add.particles(x, y, 'particle_spark', {
+        speed: { min: 120, max: 450 }, angle: { min: 0, max: 360 },
+        scale: { start: 2.5 * s, end: 0.1 * s },
+        alpha: { start: 1, end: 0 }, rotate: { min: -180, max: 180 },
+        lifespan: { min: 400, max: 900 }, quantity: 30,
+        tint: [0xffffff, 0xeef8ff, 0xccf0ff, 0x88ddff],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(10);
+      iceShards.explode();
+
+      const frostMist = this.add.particles(x, y, 'particle_spark', {
+        speed: { min: 30, max: 140 }, angle: { min: 0, max: 360 },
+        scale: { start: 3.0 * s, end: 0 },
+        alpha: { start: 0.4, end: 0 }, rotate: { min: -360, max: 360 },
+        lifespan: { min: 1000, max: 2500 }, quantity: 16,
+        tint: [0xccf0ff, 0xaaddff, 0xffffff],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(9);
+      frostMist.explode();
+
+      this.time.delayedCall(3000, () => { iceShards.destroy(); frostMist.destroy(); });
+
+      const frozenPatch = this.add.graphics().setDepth(10);
+      frozenPatch.fillStyle(0x88ddff, 0.15); frozenPatch.fillCircle(x, y, 16);
+      frozenPatch.fillStyle(0xccf0ff, 0.1); frozenPatch.fillCircle(x, y, 28);
+      frozenPatch.fillStyle(0xaaddff, 0.06); frozenPatch.fillCircle(x, y, 42);
+      frozenPatch.lineStyle(1, 0xffffff, 0.15);
+      frozenPatch.strokeCircle(x, y, 20);
+      frozenPatch.strokeCircle(x, y, 34);
+      this.tweens.add({ targets: frozenPatch, alpha: 0, duration: 1500, delay: 200, ease: 'Quad.easeIn', onComplete: () => frozenPatch.destroy() });
+      return;
+    }
+
+    if (type === 6) {
+      const w = this.camW, h = this.camH;
+      const s = this.sf;
+
+      const flash = this.add.graphics().setDepth(50);
+      flash.fillStyle(0xddff99, 0.12); flash.fillRect(0, 0, w, h);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 250, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
+
+      const spiralGfx = this.add.graphics().setDepth(13);
+      spiralGfx.lineStyle(2, 0xeeffbb, 0.5);
+      for (let ring = 0; ring < 3; ring++) {
+        spiralGfx.beginPath();
+        const startAngle = ring * 1.2;
+        const turns = 2.5 - ring * 0.3;
+        const maxR = (30 + ring * 18) * s;
+        const steps = 40;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const angle = startAngle + t * turns * Math.PI * 2;
+          const r = maxR * t;
+          const px = x + Math.cos(angle) * r;
+          const py = y + Math.sin(angle) * r;
+          i === 0 ? spiralGfx.moveTo(px, py) : spiralGfx.lineTo(px, py);
+        }
+        spiralGfx.strokePath();
+      }
+
+      spiralGfx.lineStyle(1.5, 0xccdd88, 0.35);
+      for (let ring = 0; ring < 2; ring++) {
+        spiralGfx.beginPath();
+        const startAngle = -ring * 1.5 + 0.5;
+        const turns = 2 - ring * 0.4;
+        const maxR = (40 + ring * 22) * s;
+        const steps = 30;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const angle = startAngle + t * turns * Math.PI * 2;
+          const r = maxR * t;
+          const px = x + Math.cos(angle) * r;
+          const py = y + Math.sin(angle) * r;
+          i === 0 ? spiralGfx.moveTo(px, py) : spiralGfx.lineTo(px, py);
+        }
+        spiralGfx.strokePath();
+      }
+
+      this.tweens.add({
+        targets: spiralGfx, alpha: 0, scaleX: 1.8, scaleY: 1.8,
+        duration: 700, ease: 'Quad.easeOut',
+        onComplete: () => spiralGfx.destroy(),
+      });
+
+      const streakCount = 24;
+      const streaks: Phaser.GameObjects.Graphics[] = [];
+      for (let i = 0; i < streakCount; i++) {
+        const a = (i / streakCount) * Math.PI * 2;
+        const startR = Phaser.Math.Between(5, 15) * s;
+        const endR = Phaser.Math.Between(30, 70) * s;
+        const g = this.add.graphics().setDepth(12);
+        g.lineStyle(Phaser.Math.Between(1, 3), [0xeeffbb, 0xddff99, 0xccdd88, 0xffffff][Phaser.Math.Between(0, 3)], Phaser.Math.FloatBetween(0.3, 0.7));
+        g.beginPath();
+        const midR = (startR + endR) / 2;
+        const curve = Phaser.Math.FloatBetween(-0.3, 0.3);
+        g.moveTo(x + Math.cos(a) * startR, y + Math.sin(a) * startR);
+        g.lineTo(x + Math.cos(a + curve) * midR, y + Math.sin(a + curve) * midR);
+        g.lineTo(x + Math.cos(a + curve * 1.5) * endR, y + Math.sin(a + curve * 1.5) * endR);
+        g.strokePath();
+        streaks.push(g);
+      }
+
+      this.tweens.add({
+        targets: streaks,
+        alpha: 0, duration: 500, delay: 200,
+        ease: 'Quad.easeOut',
+        onComplete: () => streaks.forEach(g => g.destroy()),
+      });
+
+      const dustSwirl = this.add.particles(x, y, 'particle_air', {
+        speed: { min: 100, max: 350 }, angle: { min: 0, max: 360 },
+        scale: { start: 3.0 * s, end: 0.1 * s },
+        alpha: { start: 0.7, end: 0 }, rotate: { min: -180, max: 180 },
+        lifespan: { min: 300, max: 800 }, quantity: 35,
+        tint: [0xffffff, 0xeeffbb, 0xddff99, 0xccdd88],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(10);
+      dustSwirl.explode();
+
+      const updraft = this.add.particles(x, y, 'particle_air', {
+        speedY: { min: -350, max: -80 }, speedX: { min: -80, max: 80 },
+        scale: { start: 2.0 * s, end: 0 },
+        alpha: { start: 0.5, end: 0 }, rotate: { min: -360, max: 360 },
+        lifespan: { min: 600, max: 1500 }, quantity: 18,
+        tint: [0xddff99, 0xccdd88, 0xeeffbb],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(10);
+      updraft.explode();
+
+      const leaves = this.add.particles(x, y, 'particle_leaf', {
+        speed: { min: 80, max: 280 }, angle: { min: 0, max: 360 },
+        gravityY: 150, scale: { start: 1.2 * s, end: 0.3 * s },
+        alpha: { start: 0.8, end: 0 }, rotate: { min: -540, max: 540 },
+        lifespan: { min: 800, max: 2200 }, quantity: 14,
+        tint: [0x88dd44, 0x66cc33, 0xaadd55],
+        blendMode: 'ADD', emitting: false,
+      }).setDepth(11);
+      leaves.explode();
+
+      this.time.delayedCall(3000, () => { dustSwirl.destroy(); updraft.destroy(); leaves.destroy(); });
+
+      const afterGlow = this.add.graphics().setDepth(10);
+      afterGlow.fillStyle(0xccdd88, 0.1); afterGlow.fillCircle(x, y, 18);
+      afterGlow.fillStyle(0xddff99, 0.06); afterGlow.fillCircle(x, y, 32);
+      afterGlow.fillStyle(0xeeffbb, 0.03); afterGlow.fillCircle(x, y, 48);
+      this.tweens.add({ targets: afterGlow, alpha: 0, duration: 1200, delay: 300, ease: 'Quad.easeIn', onComplete: () => afterGlow.destroy() });
       return;
     }
   }

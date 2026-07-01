@@ -86,6 +86,9 @@ class SoundSynth {
       case 1: this.water(t, m); break;
       case 2: this.earth(t, m); break;
       case 3: this.leaf(t, m); break;
+      case 4: this.lightning(t, m); break;
+      case 5: this.ice(t, m); break;
+      case 6: this.wind(t, m); break;
     }
   }
 
@@ -251,6 +254,99 @@ class SoundSynth {
     swg.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
     swish.connect(swg); swg.connect(dst);
     swish.start(t); swish.stop(t + 0.35);
+  }
+
+  private lightning(t: number, m: number) {
+    const ctx = this.ctx!;
+    const dst = this.master!;
+
+    const crack = ctx.createBufferSource();
+    crack.buffer = this.noiseBuf(0.2);
+    const cf = ctx.createBiquadFilter();
+    cf.type = 'highpass';
+    cf.frequency.setValueAtTime(3000, t);
+    cf.frequency.exponentialRampToValueAtTime(500, t + 0.2);
+    const cg = ctx.createGain();
+    cg.gain.setValueAtTime(0.25, t);
+    cg.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    crack.connect(cf); cf.connect(cg); cg.connect(dst);
+    crack.start(t); crack.stop(t + 0.2);
+
+    const zap = ctx.createOscillator();
+    zap.type = 'sawtooth';
+    zap.frequency.setValueAtTime(2000 * m, t);
+    zap.frequency.exponentialRampToValueAtTime(8000, t + 0.05);
+    zap.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+    const zg = ctx.createGain();
+    zg.gain.setValueAtTime(0.12, t);
+    zg.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    zap.connect(zg); zg.connect(dst);
+    zap.start(t); zap.stop(t + 0.15);
+  }
+
+  private ice(t: number, m: number) {
+    const ctx = this.ctx!;
+    const dst = this.master!;
+
+    const shatter = ctx.createBufferSource();
+    shatter.buffer = this.noiseBuf(0.3);
+    const sf = ctx.createBiquadFilter();
+    sf.type = 'highpass';
+    sf.frequency.setValueAtTime(4000, t);
+    sf.frequency.exponentialRampToValueAtTime(800, t + 0.3);
+    sf.Q.value = 1;
+    const sg = ctx.createGain();
+    sg.gain.setValueAtTime(0.15, t);
+    sg.gain.linearRampToValueAtTime(0.2, t + 0.03);
+    sg.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    shatter.connect(sf); sf.connect(sg); sg.connect(dst);
+    shatter.start(t); shatter.stop(t + 0.3);
+
+    for (let i = 0; i < 6; i++) {
+      const ct = t + 0.02 + i * 0.04;
+      const chime = ctx.createOscillator();
+      chime.type = 'sine';
+      chime.frequency.setValueAtTime(800 + i * 200 * m, ct);
+      chime.frequency.exponentialRampToValueAtTime(1200 + i * 200, ct + 0.06);
+      const cg = ctx.createGain();
+      cg.gain.setValueAtTime(0, ct);
+      cg.gain.linearRampToValueAtTime(0.05 * m, ct + 0.01);
+      cg.gain.exponentialRampToValueAtTime(0.001, ct + 0.08);
+      chime.connect(cg); cg.connect(dst);
+      chime.start(ct); chime.stop(ct + 0.08);
+    }
+  }
+
+  private wind(t: number, m: number) {
+    const ctx = this.ctx!;
+    const dst = this.master!;
+
+    const whoosh = ctx.createBufferSource();
+    whoosh.buffer = this.noiseBuf(0.4);
+    const wf = ctx.createBiquadFilter();
+    wf.type = 'bandpass';
+    wf.frequency.setValueAtTime(600, t);
+    wf.frequency.exponentialRampToValueAtTime(2500 * m, t + 0.15);
+    wf.frequency.exponentialRampToValueAtTime(200, t + 0.4);
+    wf.Q.value = 0.3;
+    const wg = ctx.createGain();
+    wg.gain.setValueAtTime(0.12, t);
+    wg.gain.linearRampToValueAtTime(0.18, t + 0.05);
+    wg.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    whoosh.connect(wf); wf.connect(wg); wg.connect(dst);
+    whoosh.start(t); whoosh.stop(t + 0.4);
+
+    const whistle = ctx.createOscillator();
+    whistle.type = 'sine';
+    whistle.frequency.setValueAtTime(200 * m, t);
+    whistle.frequency.exponentialRampToValueAtTime(800 * m, t + 0.2);
+    whistle.frequency.exponentialRampToValueAtTime(100, t + 0.35);
+    const wsg = ctx.createGain();
+    wsg.gain.setValueAtTime(0, t);
+    wsg.gain.linearRampToValueAtTime(0.06, t + 0.04);
+    wsg.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    whistle.connect(wsg); wsg.connect(dst);
+    whistle.start(t); whistle.stop(t + 0.35);
   }
 }
 

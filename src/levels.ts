@@ -297,7 +297,7 @@ export const levels: LevelDef[] = [
     rows: 8,
     cols: 8,
     time: 10, // 60,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'score', target: 1500 }],
     crates: [],
     ice: [],
@@ -314,7 +314,7 @@ export const levels: LevelDef[] = [
     cols: 8,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [
       { type: 'orbs_matched', target: 15, element: 0 },
       { type: 'orbs_matched', target: 15, element: 4 },
@@ -330,7 +330,7 @@ export const levels: LevelDef[] = [
     cols: 8,
     moves: 25,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [
       { type: 'destroy_ice', target: 6 },
       { type: 'destroy_crates', target: 4 },
@@ -352,7 +352,7 @@ export const levels: LevelDef[] = [
     rows: 7,
     cols: 7,
     time: 10, // 40,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'score', target: 2000 }],
     crates: [],
     ice: [],
@@ -365,7 +365,7 @@ export const levels: LevelDef[] = [
     cols: 8,
     moves: 28,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [
       { type: 'orbs_matched', target: 20, element: 0 },
       { type: 'orbs_matched', target: 20, element: 1 },
@@ -382,7 +382,7 @@ export const levels: LevelDef[] = [
     rows: 8,
     cols: 8,
     time: 10, // 65,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'score', target: 2500 }],
     crates: [],
     ice: [
@@ -403,7 +403,7 @@ export const levels: LevelDef[] = [
     cols: 8,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'destroy_crates', target: 12 }],
     crates: [
       { row: 0, col: 2 }, { row: 0, col: 5 },
@@ -428,7 +428,7 @@ export const levels: LevelDef[] = [
     rows: 8,
     cols: 8,
     time: 10, // 55,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [
       { type: 'orbs_matched', target: 50, element: 1 },
       { type: 'orbs_matched', target: 50, element: 3 },
@@ -443,7 +443,7 @@ export const levels: LevelDef[] = [
     rows: 9,
     cols: 9,
     time: 10, // 70,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'score', target: 3500 }],
     crates: [
       { row: 1, col: 1 }, { row: 1, col: 7 },
@@ -464,7 +464,7 @@ export const levels: LevelDef[] = [
     rows: 8,
     cols: 8,
     time: 10, // 45,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'score', target: 4000 }],
     crates: [],
     ice: [],
@@ -481,7 +481,7 @@ export const levels: LevelDef[] = [
     cols: 8,
     moves: 25,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'destroy_crates', target: 18 }],
     crates: [
       { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 6 }, { row: 0, col: 7 },
@@ -502,7 +502,7 @@ export const levels: LevelDef[] = [
     cols: 8,
     moves: 28,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [{ type: 'destroy_ice', target: 20 }],
     crates: [],
     ice: [
@@ -523,7 +523,7 @@ export const levels: LevelDef[] = [
     rows: 9,
     cols: 9,
     time: 10, // 55,
-    orbTypes: 5,
+    orbTypes: 6,
     objectives: [
       { type: 'orbs_matched', target: 30, element: 0 },
       { type: 'orbs_matched', target: 30, element: 2 },
@@ -540,7 +540,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'score', target: 5000 },
       { type: 'destroy_crates', target: 6 },
@@ -560,7 +560,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'score', target: 5000 },
       { type: 'destroy_ice', target: 8 },
@@ -585,7 +585,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 28,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'destroy_crates', target: 8 },
       { type: 'destroy_ice', target: 8 },
@@ -610,7 +610,7 @@ export const levels: LevelDef[] = [
     rows: 9,
     cols: 9,
     time: 10, // 50,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [{ type: 'score', target: 6000 }],
     crates: [
       { row: 0, col: 0 }, { row: 0, col: 8 },
@@ -635,7 +635,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'orbs_matched', target: 25, element: 0 },
       { type: 'orbs_matched', target: 25, element: 1 },
@@ -654,7 +654,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 25,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [{ type: 'destroy_crates', target: 24 }],
     crates: [
       { row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }, { row: 0, col: 7 },
@@ -677,7 +677,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'destroy_ice', target: 28 },
     ],
@@ -706,7 +706,7 @@ export const levels: LevelDef[] = [
     rows: 9,
     cols: 9,
     time: 10, // 50,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'score', target: 8000 },
       { type: 'destroy_crates', target: 6 },
@@ -732,7 +732,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 30,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'orbs_matched', target: 40, element: 0 },
       { type: 'orbs_matched', target: 40, element: 1 },
@@ -751,7 +751,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 35,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'destroy_crates', target: 10 },
       { type: 'destroy_ice', target: 10 },
@@ -779,7 +779,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 35,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'destroy_crates', target: 12 },
       { type: 'score', target: 10000 },
@@ -800,7 +800,7 @@ export const levels: LevelDef[] = [
     cols: 9,
     moves: 40,
     time: 999,
-    orbTypes: 5,
+    orbTypes: 7,
     objectives: [
       { type: 'score', target: 15000 },
       { type: 'destroy_crates', target: 12 },

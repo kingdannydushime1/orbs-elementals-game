@@ -3,6 +3,9 @@ import fireOrbUrl from '../assets/images/fire_orb_1782465314706.jpg';
 import waterOrbUrl from '../assets/images/water_orb_1782465299667.jpg';
 import rockOrbUrl from '../assets/images/rock_orb_1782465345845.jpg';
 import leafOrbUrl from '../assets/images/leaf_orb_1782465330903.jpg';
+import lightningOrbUrl from '../assets/images/lightning_orb_1782465361614.jpg';
+import iceOrbUrl from '../assets/images/ice_orb_1782465391016.jpg';
+import windOrbUrl from '../assets/images/wind_orb_1782465377034.jpg';
 import bgUrl from '../assets/images/background.jpg';
 
 export class BootScene extends Phaser.Scene {
@@ -55,6 +58,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('water_orb', waterOrbUrl);
     this.load.image('rock_orb', rockOrbUrl);
     this.load.image('leaf_orb', leafOrbUrl);
+    this.load.image('lightning_orb', lightningOrbUrl);
+    this.load.image('ice_orb', iceOrbUrl);
+    this.load.image('wind_orb', windOrbUrl);
     this.load.image('background', bgUrl);
   }
 

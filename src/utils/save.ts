@@ -1,9 +1,12 @@
 const COINS_KEY = 'save_coins';
 const LIVES_KEY = 'save_lives';
 const LAST_LEVEL_KEY = 'save_last_level';
+const DAILY_DATE_KEY = 'save_daily_date';
+const DAILY_STREAK_KEY = 'save_daily_streak';
 const MAX_LIVES = 3;
 const LIVES_COST = 10;
 const COINS_PER_WIN = 100;
+const DAILY_REWARDS = [50, 100, 150, 200, 250, 300, 500];
 
 function starCoins(): number {
   try {
@@ -76,4 +79,45 @@ export function loadLastLevel(): number {
   try { return parseInt(localStorage.getItem(LAST_LEVEL_KEY) || '1', 10); } catch { return 1; }
 }
 
-export { MAX_LIVES, LIVES_COST, COINS_PER_WIN };
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterdayStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function checkDailyReward(): 'claimable' | 'claimed' | 'streak_lost' {
+  try {
+    const last = localStorage.getItem(DAILY_DATE_KEY) || '';
+    const today = todayStr();
+    if (last === today) return 'claimed';
+    if (last >= yesterdayStr()) return 'claimable';
+    return 'streak_lost';
+  } catch { return 'claimable'; }
+}
+
+export function claimDailyReward(): number {
+  const state = checkDailyReward();
+  if (state === 'claimed') return 0;
+  let streak = 0;
+  try { streak = parseInt(localStorage.getItem(DAILY_STREAK_KEY) || '0', 10); } catch { }
+  if (state === 'streak_lost') streak = 0;
+  streak++;
+  const idx = Math.min(streak - 1, DAILY_REWARDS.length - 1);
+  const reward = DAILY_REWARDS[idx];
+  try {
+    localStorage.setItem(DAILY_DATE_KEY, todayStr());
+    localStorage.setItem(DAILY_STREAK_KEY, String(streak));
+  } catch { }
+  addCoins(reward);
+  return reward;
+}
+
+export function getDailyStreak(): number {
+  try { return parseInt(localStorage.getItem(DAILY_STREAK_KEY) || '0', 10); } catch { return 0; }
+}
+
+export { MAX_LIVES, LIVES_COST, COINS_PER_WIN, DAILY_REWARDS };

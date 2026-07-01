@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { loadCoins, loadLives, buyLives, hasLives, MAX_LIVES, LIVES_COST, loadLastLevel } from '../utils/save';
+import { loadCoins, loadLives, buyLives, hasLives, MAX_LIVES, LIVES_COST, loadLastLevel, checkDailyReward, claimDailyReward, getDailyStreak, DAILY_REWARDS } from '../utils/save';
 
 export class MenuScene extends Phaser.Scene {
   private bgImage: Phaser.GameObjects.Image | null = null;
+  private resizeHandler: (() => void) | null = null;
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -14,6 +15,13 @@ export class MenuScene extends Phaser.Scene {
     const s = Math.min(w, h) / 540;
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
+
+    this.events.on('shutdown', () => {
+      if (this.resizeHandler) {
+        this.scale.off('resize', this.resizeHandler);
+        this.resizeHandler = null;
+      }
+    });
 
     this.bgImage = this.add.image(w / 2, h / 2, 'background').setDepth(-2).setDisplaySize(w, h);
 
@@ -147,9 +155,9 @@ export class MenuScene extends Phaser.Scene {
     this.createStatusPanel(w, h, s);
     this.createFloatingOrbs(w, h, s);
 
-    this.scale.on('resize', () => {
-      this.scene.restart();
-    });
+    if (this.resizeHandler) this.scale.off('resize', this.resizeHandler);
+    this.resizeHandler = () => this.scene.restart();
+    this.scale.on('resize', this.resizeHandler);
   }
 
   private showBuyLivesModal(w: number, h: number, s: number) {
@@ -310,6 +318,23 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(20 * s)}px`, color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(1);
 
+    const dailyState = checkDailyReward();
+    const giftX = w / 2 + panelW / 2 + 20 * s;
+    const giftY = panelY + panelH / 2;
+    const giftText = dailyState === 'claimed' ? '\u{1F381}' : '\u{1F4E6}';
+    const gift = this.add.text(giftX, giftY, giftText, {
+      fontSize: `${Math.round(28 * s)}px`,
+    }).setOrigin(0.5).setDepth(1).setInteractive({ useHandCursor: true });
+    if (dailyState === 'claimable' || dailyState === 'streak_lost') {
+      const pulse = this.tweens.add({
+        targets: gift, scaleX: { from: 1, to: 1.3 }, scaleY: { from: 1, to: 1.3 },
+        duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+    }
+    gift.on('pointerdown', () => {
+      this.showDailyRewardModal(w, h, s);
+    });
+
     if (lives === 0) {
       const cw = Math.min(220 * s, w * 0.6);
       const ch = 50 * s;
@@ -350,10 +375,139 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
+  private showDailyRewardModal(w: number, h: number, s: number) {
+    const overlay = this.add.graphics().setDepth(100);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, w, h);
+
+    const panelW = Math.min(340 * s, w * 0.85);
+    const panelH = 320 * s;
+    const px = w / 2;
+    const py = h / 2;
+
+    const panel = this.add.image(px, py, 'wood_panel').setDepth(101);
+    panel.setDisplaySize(panelW, panelH);
+    const border = this.add.graphics().setDepth(101);
+    border.lineStyle(3 * s, 0xffd700, 0.7);
+    border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
+
+    const state = checkDailyReward();
+    const streak = getDailyStreak();
+    const nextIdx = Math.min(streak, DAILY_REWARDS.length - 1);
+    const rewardAmount = state === 'claimed' ? 0 : DAILY_REWARDS[nextIdx];
+
+    const giftTitle = this.add.text(px, py - 80 * s, '\u{1F381}', {
+      fontSize: `${Math.round(52 * s)}px`,
+    }).setOrigin(0.5).setDepth(102);
+
+    const titleText = state === 'claimed' ? 'Already Claimed!' : 'Daily Reward!';
+    const title = this.add.text(px, py - 34 * s, titleText, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(24 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(102);
+
+    const divY = py - 6 * s;
+    const divider = this.add.graphics().setDepth(102);
+    divider.lineStyle(1 * s, 0x8b6914, 0.4);
+    divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
+
+    const streakText = this.add.text(px, py + 18 * s, `Streak: Day ${streak}`, {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(16 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
+    }).setOrigin(0.5).setDepth(102);
+
+    let rewardTextObj: Phaser.GameObjects.Text | null = null;
+    let claimPanelObj: Phaser.GameObjects.Image | null = null;
+    let claimBorderObj: Phaser.GameObjects.Graphics | null = null;
+    let claimTextObj: Phaser.GameObjects.Text | null = null;
+
+    if (state !== 'claimed') {
+      const rewardStr = `${rewardAmount} \u{1FA99}`;
+      rewardTextObj = this.add.text(px, py + 52 * s, rewardStr, {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(32 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(102).setAlpha(0).setScale(2);
+      this.tweens.add({
+        targets: rewardTextObj, alpha: 1, scaleX: 1, scaleY: 1,
+        duration: 500, ease: 'Back.easeOut',
+      });
+
+      const claimBtnW = Math.min(200 * s, panelW - 50 * s);
+      const claimBtnH = 50 * s;
+      const claimBtnX = px - claimBtnW / 2;
+      const claimBtnY = py + 88 * s;
+
+      claimPanelObj = this.add.image(px, claimBtnY + claimBtnH / 2, 'wood_panel').setDepth(102);
+      claimPanelObj.setDisplaySize(claimBtnW, claimBtnH);
+      claimBorderObj = this.add.graphics().setDepth(102);
+      claimBorderObj.lineStyle(2 * s, 0xffd700, 0.7);
+      claimBorderObj.strokeRoundedRect(claimBtnX, claimBtnY, claimBtnW, claimBtnH, 14 * s);
+
+      claimTextObj = this.add.text(px, claimBtnY + claimBtnH / 2, 'CLAIM', {
+        fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#ffd700', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+      claimTextObj.on('pointerover', () => {
+        claimBorderObj!.clear();
+        claimBorderObj!.lineStyle(3 * s, 0xffd700, 1);
+        claimBorderObj!.strokeRoundedRect(claimBtnX, claimBtnY, claimBtnW, claimBtnH, 14 * s);
+        claimTextObj!.setColor('#ffffff');
+      });
+      claimTextObj.on('pointerout', () => {
+        claimBorderObj!.clear();
+        claimBorderObj!.lineStyle(2 * s, 0xffd700, 0.7);
+        claimBorderObj!.strokeRoundedRect(claimBtnX, claimBtnY, claimBtnW, claimBtnH, 14 * s);
+        claimTextObj!.setColor('#ffd700');
+      });
+      claimTextObj.on('pointerdown', () => {
+        const amt = claimDailyReward();
+        overlay.destroy(); panel.destroy(); border.destroy();
+        giftTitle.destroy(); title.destroy(); divider.destroy();
+        streakText.destroy(); rewardTextObj!.destroy();
+        claimPanelObj!.destroy(); claimBorderObj!.destroy(); claimTextObj!.destroy();
+        cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+        this.scene.restart();
+      });
+    }
+
+    const cancelBtnW = Math.min(130 * s, panelW * 0.45);
+    const cancelBtnH = 38 * s;
+    const cancelBtnX = px - cancelBtnW / 2;
+    const cancelBtnY = py + (state === 'claimed' ? 50 : 150) * s;
+
+    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(102);
+    cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
+    const cancelBorder = this.add.graphics().setDepth(102);
+    cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+    cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+
+    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CLOSE', {
+      fontFamily: 'Georgia, serif', fontSize: `${Math.round(14 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
+    cancelText.on('pointerover', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(2 * s, 0xa78bfa, 0.8);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#ffffff');
+    });
+    cancelText.on('pointerout', () => {
+      cancelBorder.clear();
+      cancelBorder.lineStyle(1.5 * s, 0x4a3a6a, 0.5);
+      cancelBorder.strokeRoundedRect(cancelBtnX, cancelBtnY, cancelBtnW, cancelBtnH, 10 * s);
+      cancelText.setColor('#a78bfa');
+    });
+    cancelText.on('pointerdown', () => {
+      overlay.destroy(); panel.destroy(); border.destroy();
+      giftTitle.destroy(); title.destroy(); divider.destroy();
+      streakText.destroy();
+      if (rewardTextObj) rewardTextObj.destroy();
+      if (claimPanelObj) claimPanelObj.destroy();
+      if (claimBorderObj) claimBorderObj.destroy();
+      if (claimTextObj) claimTextObj.destroy();
+      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
+    });
+  }
+
   private createFloatingOrbs(w: number, h: number, s: number) {
-    const orbKeys = ['orb_0', 'orb_1', 'orb_2', 'orb_3'];
+    const orbKeys = ['orb_0', 'orb_1', 'orb_2', 'orb_3', 'orb_4'];
     for (let i = 0; i < 8; i++) {
-      const key = orbKeys[i % 4];
+      const key = orbKeys[i % orbKeys.length];
       if (!this.textures.exists(key)) continue;
       const orb = this.add.image(
         Phaser.Math.Between(0, w),
