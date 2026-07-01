@@ -52,23 +52,57 @@ export class LevelSelectScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1);
 
     const total = getTotalLevels();
-    const nodeR = Math.min(34 * s, Math.max(28, w * 0.055));
-    const pathStartY = 100 * s;
-    const pathEndY = h - 80 * s;
-    const pathH = pathEndY - pathStartY;
+    const nodeR = Math.min(28 * s, w * 0.045);
+    const scrollTop = 82 * s;
+    const scrollBot = h - 52 * s;
+    const scrollH = scrollBot - scrollTop;
     const centerX = w / 2;
-    const amplitude = w * 0.32;
+    const amplitude = w * 0.30;
+    const stepY = Math.max(nodeR * 3.2, (h * 0.85) / (total > 1 ? total - 1 : 1));
+    const contentH = (total - 1) * stepY + nodeR * 4;
 
     const pathPoints: { x: number; y: number }[] = [];
     for (let i = 0; i < total; i++) {
       const t = total > 1 ? i / (total - 1) : 0.5;
-      const y = pathStartY + t * pathH;
+      const y = nodeR * 2 + t * (contentH - nodeR * 4);
       const x = centerX + Math.sin(t * Math.PI * 2.5) * amplitude;
       pathPoints.push({ x, y });
     }
 
-    this.drawPath(pathPoints, s, w, h);
-    this.drawNodes(pathPoints, total, s, nodeR, w, h);
+    const scrollContainer = this.add.container(0, 0).setDepth(1);
+    scrollContainer.add(this.add.graphics());
+    this.drawPath(pathPoints, s, scrollContainer);
+    const nodesGfx = this.add.graphics();
+    scrollContainer.add(nodesGfx);
+    this.drawNodes(pathPoints, total, s, nodeR, nodesGfx, scrollContainer);
+
+    const maskShape = this.add.graphics();
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(0, scrollTop, w, scrollH);
+    scrollContainer.setMask(maskShape.createGeometryMask());
+
+    const maxScroll = Math.max(0, contentH - scrollH + nodeR * 4);
+
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.y < scrollTop || p.y > scrollBot) return;
+      this.data.set('scrollStartY', p.y);
+      this.data.set('contStartY', scrollContainer.y);
+      this.data.set('dragging', false);
+      this.data.set('dragDist', 0);
+    });
+
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const sd = this.data.get('scrollStartY');
+      if (sd === undefined) return;
+      const dy = p.y - sd;
+      if (Math.abs(dy) > 5) this.data.set('dragging', true);
+      this.data.set('dragDist', Math.abs(dy));
+      scrollContainer.y = Phaser.Math.Clamp(this.data.get('contStartY') + dy, -maxScroll, 0);
+    });
+
+    this.input.on('pointerup', () => {
+      this.data.set('scrollStartY', undefined);
+    });
 
     const backBtn = this.add.text(18 * s, h - 30 * s, '\u2190 BACK', {
       fontFamily: 'Georgia, serif',
@@ -111,8 +145,9 @@ export class LevelSelectScene extends Phaser.Scene {
     this.scale.on('resize', this.resizeHandler);
   }
 
-  private drawPath(points: { x: number; y: number }[], s: number, w: number, h: number) {
-    const pathGfx = this.add.graphics().setDepth(0);
+  private drawPath(points: { x: number; y: number }[], s: number, container: Phaser.GameObjects.Container) {
+    const pathGfx = container.getAt(0) as Phaser.GameObjects.Graphics;
+    pathGfx.clear();
 
     pathGfx.lineStyle(6 * s, 0x1a1018, 0.6);
     pathGfx.beginPath();
@@ -129,11 +164,11 @@ export class LevelSelectScene extends Phaser.Scene {
     points.forEach((p, i) => i === 0 ? pathGfx.moveTo(p.x, p.y) : pathGfx.lineTo(p.x, p.y));
     pathGfx.strokePath();
 
-    const dotsGfx = this.add.graphics().setDepth(0.5);
+    const dotsGfx = container.getAt(0) as Phaser.GameObjects.Graphics;
     dotsGfx.fillStyle(0x5c3a1e, 0.25);
     for (let i = 0; i < points.length - 1; i++) {
       const p1 = points[i], p2 = points[i + 1];
-      const steps = 8;
+      const steps = 6;
       for (let step = 1; step < steps; step++) {
         const t = step / steps;
         const x = p1.x + (p2.x - p1.x) * t;
@@ -143,89 +178,77 @@ export class LevelSelectScene extends Phaser.Scene {
     }
   }
 
-  private drawNodes(points: { x: number; y: number }[], total: number, s: number, nodeR: number, w: number, h: number) {
+  private drawNodes(points: { x: number; y: number }[], total: number, s: number, nodeR: number, nodeGfx: Phaser.GameObjects.Graphics, scrollContainer: Phaser.GameObjects.Container) {
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
     for (let i = 0; i < total; i++) {
       const { x, y } = points[i];
       const level = levels[i];
       const starsCount = this.getStarsForLevel(level.id);
       const unlocked = i === 0 || this.getStarsForLevel(levels[i - 1].id) > 0;
 
-      const nodeContainer = this.add.container(x, y).setDepth(1);
-      const nodeGfx = this.add.graphics();
-      nodeContainer.add(nodeGfx);
+      const nodeContainer = this.add.container(x, y).setDepth(0);
+      scrollContainer.add(nodeContainer);
 
       const elementIdx = level.id % 4;
       const elementColor = ELEMENT_COLORS[elementIdx];
       const elementGlow = ELEMENT_GLOWS[elementIdx];
 
       if (unlocked) {
-        const shadow = this.add.graphics().setDepth(0);
-        shadow.fillStyle(0x0a0815, 0.5);
-        shadow.fillCircle(0, 4 * s, nodeR + 4 * s);
-        nodeContainer.addAt(shadow, 0);
-
         nodeGfx.fillStyle(0x1a1018, 0.9);
-        nodeGfx.fillCircle(0, 0, nodeR + 6 * s);
+        nodeGfx.fillCircle(x, y, nodeR + 4 * s);
         nodeGfx.fillStyle(0x2d1a3a, 1);
-        nodeGfx.fillCircle(0, 0, nodeR);
-        nodeGfx.lineStyle(3 * s, elementColor, 0.8);
-        nodeGfx.strokeCircle(0, 0, nodeR + 2 * s);
-        nodeGfx.lineStyle(1.5 * s, 0xffd700, 0.6);
-        nodeGfx.strokeCircle(0, 0, nodeR - 3 * s);
+        nodeGfx.fillCircle(x, y, nodeR);
+        nodeGfx.lineStyle(2.5 * s, elementColor, 0.8);
+        nodeGfx.strokeCircle(x, y, nodeR + 1 * s);
+        nodeGfx.lineStyle(1 * s, 0xffd700, 0.5);
+        nodeGfx.strokeCircle(x, y, nodeR - 2 * s);
 
         const glow = this.add.graphics().setDepth(-0.2);
         glow.fillStyle(elementGlow, 0.12);
-        glow.fillCircle(0, 0, nodeR + 18 * s);
+        glow.fillCircle(0, 0, nodeR + 14 * s);
         nodeContainer.addAt(glow, 0);
 
         const pulse = this.add.graphics().setDepth(-0.3);
-        pulse.lineStyle(2 * s, elementColor, 0.3);
-        pulse.strokeCircle(0, 0, nodeR + 8 * s);
+        pulse.lineStyle(1.5 * s, elementColor, 0.25);
+        pulse.strokeCircle(0, 0, nodeR + 6 * s);
         nodeContainer.addAt(pulse, 0);
         this.tweens.add({
           targets: pulse,
-          scale: { from: 1, to: 1.4 },
-          alpha: { from: 0.6, to: 0 },
+          scale: { from: 1, to: 1.5 },
+          alpha: { from: 0.5, to: 0 },
           duration: 2000,
           repeat: -1,
           ease: 'Quad.easeOut',
         });
       } else {
         nodeGfx.fillStyle(0x0a0815, 0.7);
-        nodeGfx.fillCircle(0, 0, nodeR);
-        nodeGfx.lineStyle(2 * s, 0x2a1a3a, 0.5);
-        nodeGfx.strokeCircle(0, 0, nodeR);
+        nodeGfx.fillCircle(x, y, nodeR);
+        nodeGfx.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
+        nodeGfx.strokeCircle(x, y, nodeR);
 
-        const lock = this.add.text(0, -nodeR - 10 * s, '\u{1F512}', {
-          fontSize: `${Math.round(18 * s)}px`,
+        const lock = this.add.text(0, -nodeR - 8 * s, '\u{1F512}', {
+          fontSize: `${Math.round(16 * s)}px`,
         }).setOrigin(0.5).setDepth(2);
         nodeContainer.add(lock);
       }
 
-      const numText = this.add.text(0, -3 * s, String(level.id), {
+      const numText = this.add.text(0, -2 * s, String(level.id), {
         fontFamily: 'Georgia, serif',
-        fontSize: `${Math.round(nodeR * 0.7)}px`,
+        fontSize: `${Math.round(nodeR * 0.75)}px`,
         color: unlocked ? '#ffd700' : '#2a1a3a',
         fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(2);
       nodeContainer.add(numText);
-
-      const nameText = this.add.text(0, nodeR + 8 * s, level.name, {
-        fontFamily: 'Georgia, serif',
-        fontSize: `${Math.round(10 * s)}px`,
-        color: unlocked ? '#c4b5fd' : '#1a0a1a',
-        fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(2);
-      nodeContainer.add(nameText);
 
       if (starsCount > 0) {
         let starsStr = '';
         for (let st = 0; st < 3; st++) {
           starsStr += st < starsCount ? '\u2605' : '\u2606';
         }
-        const starsText = this.add.text(0, nodeR + 26 * s, starsStr, {
+        const starsText = this.add.text(0, nodeR + 8 * s, starsStr, {
           fontFamily: 'Georgia, serif',
-          fontSize: `${Math.round(12 * s)}px`,
+          fontSize: `${Math.round(10 * s)}px`,
           color: '#fbbf24',
         }).setOrigin(0.5).setDepth(2);
         nodeContainer.add(starsText);
@@ -240,31 +263,62 @@ export class LevelSelectScene extends Phaser.Scene {
 
         btnZone.on('pointerover', () => {
           nodeGfx.clear();
-          nodeGfx.fillStyle(0x1a1018, 0.9);
-          nodeGfx.fillCircle(0, 0, nodeR + 6 * s);
-          nodeGfx.fillStyle(0x3d254a, 1);
-          nodeGfx.fillCircle(0, 0, nodeR);
-          nodeGfx.lineStyle(3.5 * s, elementColor, 1);
-          nodeGfx.strokeCircle(0, 0, nodeR + 2 * s);
-          nodeGfx.lineStyle(2 * s, 0xffd700, 0.9);
-          nodeGfx.strokeCircle(0, 0, nodeR - 3 * s);
+          for (let j = 0; j < total; j++) {
+            const p = points[j];
+            const lv = levels[j];
+            const ulck = j === 0 || this.getStarsForLevel(levels[j - 1].id) > 0;
+            const eIdx = lv.id % 4;
+            const eCol = ELEMENT_COLORS[eIdx];
+            const ua = ulck ? 1 : 0.7;
+            if (ulck) {
+              nodeGfx.fillStyle(0x1a1018, 0.9);
+              nodeGfx.fillCircle(p.x, p.y, nodeR + 4 * s);
+              nodeGfx.fillStyle(j === i ? 0x3d254a : 0x2d1a3a, ua);
+              nodeGfx.fillCircle(p.x, p.y, nodeR);
+              nodeGfx.lineStyle(j === i ? 3 * s : 2.5 * s, j === i ? elementColor : eCol, j === i ? 1 : 0.8);
+              nodeGfx.strokeCircle(p.x, p.y, nodeR + 1 * s);
+              nodeGfx.lineStyle(j === i ? 1.5 * s : 1 * s, 0xffd700, j === i ? 0.9 : 0.5);
+              nodeGfx.strokeCircle(p.x, p.y, nodeR - 2 * s);
+            } else {
+              nodeGfx.fillStyle(0x0a0815, 0.7);
+              nodeGfx.fillCircle(p.x, p.y, nodeR);
+              nodeGfx.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
+              nodeGfx.strokeCircle(p.x, p.y, nodeR);
+            }
+          }
           this.tweens.add({ targets: nodeContainer, scaleX: 1.08, scaleY: 1.08, duration: 150, ease: 'Back.easeOut' });
         });
 
         btnZone.on('pointerout', () => {
           nodeGfx.clear();
-          nodeGfx.fillStyle(0x1a1018, 0.9);
-          nodeGfx.fillCircle(0, 0, nodeR + 6 * s);
-          nodeGfx.fillStyle(0x2d1a3a, 1);
-          nodeGfx.fillCircle(0, 0, nodeR);
-          nodeGfx.lineStyle(3 * s, elementColor, 0.8);
-          nodeGfx.strokeCircle(0, 0, nodeR + 2 * s);
-          nodeGfx.lineStyle(1.5 * s, 0xffd700, 0.6);
-          nodeGfx.strokeCircle(0, 0, nodeR - 3 * s);
+          for (let j = 0; j < total; j++) {
+            const p = points[j];
+            const lv = levels[j];
+            const ulck = j === 0 || this.getStarsForLevel(levels[j - 1].id) > 0;
+            const eIdx = lv.id % 4;
+            const eCol = ELEMENT_COLORS[eIdx];
+            const ua = ulck ? 1 : 0.7;
+            if (ulck) {
+              nodeGfx.fillStyle(0x1a1018, 0.9);
+              nodeGfx.fillCircle(p.x, p.y, nodeR + 4 * s);
+              nodeGfx.fillStyle(0x2d1a3a, ua);
+              nodeGfx.fillCircle(p.x, p.y, nodeR);
+              nodeGfx.lineStyle(2.5 * s, eCol, 0.8);
+              nodeGfx.strokeCircle(p.x, p.y, nodeR + 1 * s);
+              nodeGfx.lineStyle(1 * s, 0xffd700, 0.5);
+              nodeGfx.strokeCircle(p.x, p.y, nodeR - 2 * s);
+            } else {
+              nodeGfx.fillStyle(0x0a0815, 0.7);
+              nodeGfx.fillCircle(p.x, p.y, nodeR);
+              nodeGfx.lineStyle(1.5 * s, 0x2a1a3a, 0.5);
+              nodeGfx.strokeCircle(p.x, p.y, nodeR);
+            }
+          }
           this.tweens.add({ targets: nodeContainer, scaleX: 1, scaleY: 1, duration: 150, ease: 'Quad.easeOut' });
         });
 
-        btnZone.on('pointerdown', () => {
+        btnZone.on('pointerup', () => {
+          if (this.data.get('dragging') || (this.data.get('dragDist') || 0) > 8) return;
           if (!hasLives()) {
             this.pendingLevelId = level.id;
             this.showBuyLivesModal(w, h, s);
@@ -304,7 +358,7 @@ export class LevelSelectScene extends Phaser.Scene {
     overlay.fillRect(0, 0, w, h);
 
     const panelW = Math.min(300 * s, w * 0.85);
-    const panelH = 290 * s;
+    const panelH = 350 * s;
     const px = w / 2;
     const py = h / 2;
 
@@ -315,25 +369,25 @@ export class LevelSelectScene extends Phaser.Scene {
     border.strokeRoundedRect(px - panelW / 2, py - panelH / 2, panelW, panelH, 20 * s);
 
     const heartsStr = '\u2764'.repeat(3);
-    const title = this.add.text(px, py - 80 * s, heartsStr, {
+    const title = this.add.text(px, py - 108 * s, heartsStr, {
       fontSize: `${Math.round(44 * s)}px`,
       color: '#ff4d6d',
     }).setOrigin(0.5).setDepth(102);
 
-    const label = this.add.text(px, py - 42 * s, '3 LIVES', {
+    const label = this.add.text(px, py - 70 * s, '3 LIVES', {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(102);
 
-    const divY = py - 16 * s;
+    const divY = py - 44 * s;
     const divider = this.add.graphics().setDepth(102);
     divider.lineStyle(1 * s, 0x8b6914, 0.4);
     divider.lineBetween(px - panelW / 2 + 30 * s, divY, px + panelW / 2 - 30 * s, divY);
 
-    const coinIcon = this.add.text(px, py + 4 * s, '\u{1FA99}', {
+    const coinIcon = this.add.text(px, py - 20 * s, '\u{1FA99}', {
       fontSize: `${Math.round(22 * s)}px`,
     }).setOrigin(0.5).setDepth(102);
 
-    const infoText = this.add.text(px, py + 28 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+    const infoText = this.add.text(px, py + 6 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
     }).setOrigin(0.5).setDepth(102);
 
@@ -341,7 +395,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const btnH = 52 * s;
 
     const buyBtnX = px - btnW / 2;
-    const buyBtnY = py + 54 * s;
+    const buyBtnY = py + 34 * s;
 
     const buyPanel = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(102);
     buyPanel.setDisplaySize(btnW, btnH);
