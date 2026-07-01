@@ -332,11 +332,11 @@ export class LevelSelectScene extends Phaser.Scene {
     panelBorder.lineStyle(3 * s, 0xffd700, 0.6);
     panelBorder.strokeRoundedRect(px - panelW / 2, panely, panelW, panelH, 20 * s);
 
-    this.add.text(px, panely + 36 * s, '\u2764'.repeat(3), {
+    const heartsText = this.add.text(px, panely + 36 * s, '\u2764'.repeat(3), {
       fontSize: `${Math.round(44 * s)}px`, color: '#ff4d6d',
     }).setOrigin(0.5).setDepth(102);
 
-    this.add.text(px, panely + 74 * s, '3 LIVES', {
+    const livesText = this.add.text(px, panely + 74 * s, '3 LIVES', {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(102);
 
@@ -344,11 +344,11 @@ export class LevelSelectScene extends Phaser.Scene {
     divider.lineStyle(1 * s, 0x8b6914, 0.4);
     divider.lineBetween(px - panelW / 2 + 30 * s, panely + 104 * s, px + panelW / 2 - 30 * s, panely + 104 * s);
 
-    this.add.text(px, panely + 130 * s, '\u{1FA99}', {
+    const coinIcon = this.add.text(px, panely + 130 * s, '\u{1FA99}', {
       fontSize: `${Math.round(22 * s)}px`,
     }).setOrigin(0.5).setDepth(102);
 
-    this.add.text(px, panely + 158 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
+    const infoText = this.add.text(px, panely + 158 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
       fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
     }).setOrigin(0.5).setDepth(102);
 
@@ -380,10 +380,11 @@ export class LevelSelectScene extends Phaser.Scene {
     });
     buyText.on('pointerdown', () => {
       if (!buyLives()) return;
-      overlay.destroy(); panel.destroy(); panelBorder.destroy(); divider.destroy();
+      overlay.destroy(); panel.destroy(); panelBorder.destroy();
+      heartsText.destroy(); livesText.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
       buyPanelBg.destroy(); buyBorder.destroy(); buyText.destroy();
       cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
-      this.children.list.filter(c => c.type === 'Text' && c.depth >= 102).forEach(c => c.destroy());
       const lid = this.pendingLevelId;
       saveLastLevel(lid);
       this.cameras.main.fadeOut(250, 0, 0, 0);
@@ -419,10 +420,11 @@ export class LevelSelectScene extends Phaser.Scene {
       cancelText.setColor('#a78bfa');
     });
     cancelText.on('pointerdown', () => {
-      overlay.destroy(); panel.destroy(); panelBorder.destroy(); divider.destroy();
+      overlay.destroy(); panel.destroy(); panelBorder.destroy();
+      heartsText.destroy(); livesText.destroy(); divider.destroy();
+      coinIcon.destroy(); infoText.destroy();
       buyPanelBg.destroy(); buyBorder.destroy(); buyText.destroy();
       cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
-      this.children.list.filter(c => c.type === 'Text' && c.depth >= 102).forEach(c => c.destroy());
     });
   }
 }

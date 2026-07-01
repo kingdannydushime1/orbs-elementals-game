@@ -101,13 +101,13 @@ export const levels: LevelDef[] = [
     moves: 25,
     time: 999,
     orbTypes: 4,
-    objectives: [{ type: 'destroy_ice', target: 4 }],
+    objectives: [{ type: 'score', target: 1000 }],
     crates: [],
     ice: [
       { row: 1, col: 1, layers: 2 }, { row: 1, col: 6, layers: 2 },
       { row: 6, col: 1, layers: 2 }, { row: 6, col: 6, layers: 2 },
     ],
-    starScore: [4, 4, 4],
+    starScore: [1000, 2000, 3500],
   },
   {
     id: 6,
@@ -332,7 +332,6 @@ export const levels: LevelDef[] = [
     time: 999,
     orbTypes: 6,
     objectives: [
-      { type: 'destroy_ice', target: 6 },
       { type: 'destroy_crates', target: 4 },
     ],
     crates: [
@@ -503,7 +502,7 @@ export const levels: LevelDef[] = [
     moves: 28,
     time: 999,
     orbTypes: 6,
-    objectives: [{ type: 'destroy_ice', target: 20 }],
+    objectives: [{ type: 'score', target: 2500 }],
     crates: [],
     ice: [
       { row: 0, col: 0, layers: 2 }, { row: 0, col: 1, layers: 2 }, { row: 0, col: 6, layers: 2 }, { row: 0, col: 7, layers: 2 },
@@ -515,7 +514,7 @@ export const levels: LevelDef[] = [
       { row: 6, col: 0, layers: 1 }, { row: 6, col: 7, layers: 1 },
       { row: 7, col: 0, layers: 2 }, { row: 7, col: 1, layers: 2 }, { row: 7, col: 6, layers: 2 }, { row: 7, col: 7, layers: 2 },
     ],
-    starScore: [20, 28, 35],
+    starScore: [2500, 3500, 5000],
   },
   {
     id: 28,
@@ -563,7 +562,6 @@ export const levels: LevelDef[] = [
     orbTypes: 7,
     objectives: [
       { type: 'score', target: 5000 },
-      { type: 'destroy_ice', target: 8 },
     ],
     crates: [],
     ice: [
@@ -588,7 +586,6 @@ export const levels: LevelDef[] = [
     orbTypes: 7,
     objectives: [
       { type: 'destroy_crates', target: 8 },
-      { type: 'destroy_ice', target: 8 },
     ],
     crates: [
       { row: 0, col: 4 }, { row: 1, col: 1 },
@@ -679,7 +676,7 @@ export const levels: LevelDef[] = [
     time: 999,
     orbTypes: 7,
     objectives: [
-      { type: 'destroy_ice', target: 28 },
+      { type: 'score', target: 3000 },
     ],
     crates: [],
     ice: [
@@ -698,7 +695,7 @@ export const levels: LevelDef[] = [
       { row: 0, col: 4, type: 'Bomb' },
       { row: 8, col: 4, type: 'Bomb' },
     ],
-    starScore: [28, 32, 36],
+    starScore: [3000, 4000, 5000],
   },
   {
     id: 36,
@@ -710,7 +707,6 @@ export const levels: LevelDef[] = [
     objectives: [
       { type: 'score', target: 8000 },
       { type: 'destroy_crates', target: 6 },
-      { type: 'destroy_ice', target: 6 },
     ],
     crates: [
       { row: 2, col: 2 }, { row: 2, col: 6 },
@@ -754,7 +750,6 @@ export const levels: LevelDef[] = [
     orbTypes: 7,
     objectives: [
       { type: 'destroy_crates', target: 10 },
-      { type: 'destroy_ice', target: 10 },
       { type: 'score', target: 5000 },
     ],
     crates: [
@@ -804,7 +799,6 @@ export const levels: LevelDef[] = [
     objectives: [
       { type: 'score', target: 15000 },
       { type: 'destroy_crates', target: 12 },
-      { type: 'destroy_ice', target: 12 },
     ],
     crates: [
       { row: 1, col: 1 }, { row: 1, col: 4 }, { row: 1, col: 7 },
