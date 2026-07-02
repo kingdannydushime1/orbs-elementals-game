@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { preventScroll } from '../utils/preventScroll';
+import { initStartBoosters } from '../utils/boosters';
 import fireOrbUrl from '../assets/images/fire_orb_1782465314706.jpg';
 import waterOrbUrl from '../assets/images/water_orb_1782465299667.jpg';
 import rockOrbUrl from '../assets/images/rock_orb_1782465345845.jpg';
@@ -7,6 +9,11 @@ import lightningOrbUrl from '../assets/images/lightning_orb_1782465361614.jpg';
 import iceOrbUrl from '../assets/images/ice_orb_1782465391016.jpg';
 import windOrbUrl from '../assets/images/wind_orb_1782465377034.jpg';
 import bgUrl from '../assets/images/background.jpg';
+
+const ELEMENT_COLORS: Record<number, number> = {
+  0: 0xff5500, 1: 0x3399ff, 2: 0x996633, 3: 0x33cc33, 4: 0xaa44ff,
+  5: 0x88ddff, 6: 0xccdd88,
+};
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -67,7 +74,81 @@ export class BootScene extends Phaser.Scene {
   create() {
     this.generateParticleTextures();
     this.makeWoodTexture();
+    this.bakeOrbTextures();
+    preventScroll();
+    initStartBoosters();
     this.scene.start('MenuScene');
+  }
+
+  private bakeOrbTextures() {
+    const keys = ['fire_orb', 'water_orb', 'rock_orb', 'leaf_orb', 'lightning_orb', 'ice_orb', 'wind_orb'];
+    for (let i = 0; i < keys.length; i++) {
+      const size = 128;
+      const canvas = this.textures.createCanvas(`orb_${i}`, size, size);
+      if (!canvas) continue;
+      const ctx = canvas.getContext();
+      const cx = size / 2, cy = size / 2, r = size / 2 - 10;
+      const color = ELEMENT_COLORS[i];
+      const colorStr = '#' + color.toString(16).padStart(6, '0');
+      ctx.shadowBlur = 0;
+      ctx.save();
+      const hg = ctx.createRadialGradient(cx, cy, r - 20, cx, cy, r + 15);
+      hg.addColorStop(0, `${colorStr}00`);
+      hg.addColorStop(0.4, `${colorStr}55`);
+      hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(cx, cy, r + 15, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      const sg = ctx.createRadialGradient(cx - 6, cy - 6, 4, cx, cy, r);
+      sg.addColorStop(0, '#3a2f5a'); sg.addColorStop(0.5, '#151030'); sg.addColorStop(1, '#080410');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.clip();
+      const img = this.textures.get(keys[i]).getSourceImage() as HTMLImageElement;
+      ctx.drawImage(img, 0, 0, size, size);
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r - 2, 0, Math.PI * 2); ctx.clip();
+      const vg = ctx.createRadialGradient(cx - 8, cy - 8, r * 0.3, cx, cy, r - 2);
+      vg.addColorStop(0, 'rgba(255,255,255,0.15)');
+      vg.addColorStop(0.5, 'rgba(0,0,0,0.1)');
+      vg.addColorStop(0.8, 'rgba(0,0,0,0.5)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.85)');
+      ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = vg; ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r - 2, 0, Math.PI * 2); ctx.clip();
+      const ig = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.8);
+      ig.addColorStop(0, `${colorStr}ee`); ig.addColorStop(0.4, `${colorStr}66`);
+      ig.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = ig; ctx.fill();
+      ctx.restore();
+      ctx.save();
+      const blg = ctx.createRadialGradient(cx + 8, cy + r - 20, 3, cx + 8, cy + r - 12, r * 0.6);
+      blg.addColorStop(0, `${colorStr}ee`); blg.addColorStop(0.5, `${colorStr}44`);
+      blg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = blg;
+      ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.shadowBlur = 12; ctx.shadowColor = `${colorStr}88`;
+      ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = `${colorStr}99`; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(cx - r * 0.28, cy - r * 0.32, r * 0.25, r * 0.12, -0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx - r * 0.2, cy - r * 0.38, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fill();
+      ctx.restore();
+      canvas.refresh();
+    }
   }
 
   private generateParticleTextures() {

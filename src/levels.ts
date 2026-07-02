@@ -1,4 +1,4 @@
-export type ObjectiveType = 'score' | 'orbs_matched' | 'destroy_ice' | 'destroy_crates';
+export type ObjectiveType = 'score' | 'orbs_matched' | 'destroy_ice' | 'destroy_crates' | 'collect_ingredient' | 'clear_jelly';
 
 export interface LevelObjective {
   type: ObjectiveType;
@@ -25,806 +25,253 @@ export interface IceDef {
   layers?: number;
 }
 
+export interface JellyDef {
+  row: number;
+  col: number;
+}
+
+export interface PortalDef {
+  from: { row: number; col: number };
+  to: { row: number; col: number };
+}
+
 export interface LevelDef {
   id: number;
   name: string;
   rows: number;
   cols: number;
+  moves: number;
   time: number;
-  moves?: number;
   orbTypes: number;
   objectives: LevelObjective[];
   crates: CrateDef[];
   ice: IceDef[];
+  jelly: JellyDef[];
+  holes: { row: number; col: number }[];
+  portals: PortalDef[];
   startSpecials?: StartSpecial[];
   starScore: [number, number, number];
 }
 
-export const levels: LevelDef[] = [
-  {
-    id: 1,
-    name: 'First Sparks',
-    rows: 6,
-    cols: 6,
-    time: 10, // 90,
-    orbTypes: 3,
-    objectives: [{ type: 'score', target: 300 }],
-    crates: [],
-    ice: [],
-    starScore: [300, 600, 1000],
-  },
-  {
-    id: 2,
-    name: 'Warm Up',
-    rows: 7,
-    cols: 7,
-    time: 10, // 80,
-    orbTypes: 3,
-    objectives: [{ type: 'score', target: 500 }],
-    crates: [],
-    ice: [],
-    starScore: [500, 900, 1400],
-  },
-  {
-    id: 3,
-    name: 'Elemental Mix',
-    rows: 8,
-    cols: 8,
-    time: 10, // 70,
-    orbTypes: 4,
-    objectives: [{ type: 'score', target: 800 }],
-    crates: [],
-    ice: [],
-    starScore: [800, 1400, 2200],
-  },
-  {
-    id: 4,
-    name: 'Crate Buster',
-    rows: 8,
-    cols: 8,
-    moves: 20,
-    time: 999,
-    orbTypes: 4,
-    objectives: [{ type: 'destroy_crates', target: 4 }],
-    crates: [
-      { row: 2, col: 2 }, { row: 2, col: 5 },
-      { row: 5, col: 2 }, { row: 5, col: 5 },
-    ],
-    ice: [],
-    starScore: [4, 4, 4],
-  },
-  {
-    id: 5,
-    name: 'Frozen Orbs',
-    rows: 8,
-    cols: 8,
-    moves: 25,
-    time: 999,
-    orbTypes: 4,
-    objectives: [{ type: 'score', target: 1000 }],
-    crates: [],
-    ice: [
-      { row: 1, col: 1, layers: 2 }, { row: 1, col: 6, layers: 2 },
-      { row: 6, col: 1, layers: 2 }, { row: 6, col: 6, layers: 2 },
-    ],
-    starScore: [1000, 2000, 3500],
-  },
-  {
-    id: 6,
-    name: 'Fire Frenzy',
-    rows: 8,
-    cols: 8,
-    time: 10, // 55,
-    orbTypes: 4,
-    objectives: [{ type: 'orbs_matched', target: 30, element: 0 }],
-    crates: [
-      { row: 0, col: 3 }, { row: 3, col: 0 }, { row: 3, col: 7 },
-      { row: 7, col: 3 },
-    ],
-    ice: [],
-    starScore: [30, 50, 80],
-  },
-  {
-    id: 7,
-    name: 'Water World',
-    rows: 8,
-    cols: 8,
-    time: 10, // 60,
-    orbTypes: 4,
-    objectives: [{ type: 'orbs_matched', target: 30, element: 1 }],
-    crates: [],
-    ice: [
-      { row: 0, col: 0, layers: 1 }, { row: 0, col: 7, layers: 1 },
-      { row: 7, col: 0, layers: 1 }, { row: 7, col: 7, layers: 1 },
-      { row: 3, col: 3, layers: 2 }, { row: 4, col: 4, layers: 2 },
-    ],
-    starScore: [30, 50, 80],
-  },
-  {
-    id: 8,
-    name: 'Rock Garden',
-    rows: 8,
-    cols: 8,
-    time: 10, // 60,
-    orbTypes: 4,
-    objectives: [{ type: 'orbs_matched', target: 25, element: 2 }],
-    crates: [
-      { row: 1, col: 1 }, { row: 1, col: 6 },
-      { row: 6, col: 1 }, { row: 6, col: 6 },
-      { row: 3, col: 3 }, { row: 4, col: 4 },
-    ],
-    ice: [],
-    starScore: [25, 45, 70],
-  },
-  {
-    id: 9,
-    name: 'Leaf Storm',
-    rows: 8,
-    cols: 8,
-    time: 10, // 50,
-    orbTypes: 4,
-    objectives: [{ type: 'orbs_matched', target: 35, element: 3 }],
-    crates: [
-      { row: 0, col: 2 }, { row: 0, col: 5 },
-      { row: 2, col: 0 }, { row: 2, col: 7 },
-      { row: 5, col: 0 }, { row: 5, col: 7 },
-      { row: 7, col: 2 }, { row: 7, col: 5 },
-    ],
-    ice: [],
-    starScore: [35, 55, 85],
-  },
-  {
-    id: 10,
-    name: 'Double Trouble',
-    rows: 8,
-    cols: 8,
-    time: 10, // 70,
-    orbTypes: 4,
-    objectives: [
-      { type: 'score', target: 1200 },
-      { type: 'orbs_matched', target: 20, element: 0 },
-    ],
-    crates: [
-      { row: 1, col: 3 }, { row: 1, col: 4 },
-      { row: 6, col: 3 }, { row: 6, col: 4 },
-    ],
-    ice: [
-      { row: 3, col: 1, layers: 2 }, { row: 3, col: 6, layers: 2 },
-      { row: 4, col: 1, layers: 2 }, { row: 4, col: 6, layers: 2 },
-    ],
-    starScore: [1200, 2000, 3500],
-  },
-  {
-    id: 11,
-    name: 'Crate Maze',
-    rows: 8,
-    cols: 8,
-    time: 10, // 65,
-    orbTypes: 4,
-    objectives: [{ type: 'score', target: 1500 }],
-    crates: [
-      { row: 0, col: 1 }, { row: 0, col: 6 },
-      { row: 1, col: 3 }, { row: 1, col: 4 },
-      { row: 3, col: 0 }, { row: 3, col: 7 },
-      { row: 4, col: 0 }, { row: 4, col: 7 },
-      { row: 6, col: 3 }, { row: 6, col: 4 },
-      { row: 7, col: 1 }, { row: 7, col: 6 },
-    ],
-    ice: [],
-    starScore: [1500, 2500, 4000],
-  },
-  {
-    id: 12,
-    name: 'Ice Age',
-    rows: 8,
-    cols: 8,
-    time: 10, // 80,
-    orbTypes: 4,
-    objectives: [{ type: 'score', target: 2000 }],
-    crates: [],
-    ice: [
-      { row: 0, col: 0, layers: 2 }, { row: 0, col: 7, layers: 2 },
-      { row: 7, col: 0, layers: 2 }, { row: 7, col: 7, layers: 2 },
-      { row: 1, col: 1, layers: 1 }, { row: 1, col: 6, layers: 1 },
-      { row: 6, col: 1, layers: 1 }, { row: 6, col: 6, layers: 1 },
-      { row: 3, col: 3, layers: 2 }, { row: 4, col: 4, layers: 2 },
-    ],
-    starScore: [2000, 3500, 5000],
-  },
-  {
-    id: 13,
-    name: 'Elementalist',
-    rows: 8,
-    cols: 8,
-    time: 10, // 60,
-    orbTypes: 4,
-    objectives: [
-      { type: 'orbs_matched', target: 15, element: 0 },
-      { type: 'orbs_matched', target: 15, element: 1 },
-      { type: 'orbs_matched', target: 15, element: 2 },
-      { type: 'orbs_matched', target: 15, element: 3 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [15, 25, 40],
-  },
-  {
-    id: 14,
-    name: 'Fortress',
-    rows: 8,
-    cols: 8,
-    time: 10, // 70,
-    orbTypes: 4,
-    objectives: [{ type: 'score', target: 2500 }],
-    crates: [
-      { row: 0, col: 3 }, { row: 0, col: 4 },
-      { row: 3, col: 0 }, { row: 3, col: 7 },
-      { row: 4, col: 0 }, { row: 4, col: 7 },
-      { row: 7, col: 3 }, { row: 7, col: 4 },
-      { row: 2, col: 2 }, { row: 2, col: 5 },
-      { row: 5, col: 2 }, { row: 5, col: 5 },
-    ],
-    ice: [
-      { row: 3, col: 3, layers: 1 }, { row: 3, col: 4, layers: 1 },
-      { row: 4, col: 3, layers: 1 }, { row: 4, col: 4, layers: 1 },
-    ],
-    starScore: [2500, 4000, 6000],
-  },
-  {
-    id: 15,
-    name: 'Gauntlet',
-    rows: 9,
-    cols: 9,
-    time: 10, // 90,
-    orbTypes: 4,
-    objectives: [{ type: 'score', target: 3000 }],
-    crates: [
-      { row: 1, col: 1 }, { row: 1, col: 7 },
-      { row: 3, col: 3 }, { row: 3, col: 5 },
-      { row: 5, col: 3 }, { row: 5, col: 5 },
-      { row: 7, col: 1 }, { row: 7, col: 7 },
-    ],
-    ice: [
-      { row: 0, col: 4, layers: 2 },
-      { row: 4, col: 0, layers: 2 }, { row: 4, col: 8, layers: 2 },
-      { row: 8, col: 4, layers: 2 },
-    ],
-    starScore: [3000, 5000, 8000],
-  },
-  {
-    id: 16,
-    name: 'New Elements',
-    rows: 8,
-    cols: 8,
-    time: 10, // 60,
-    orbTypes: 6,
-    objectives: [{ type: 'score', target: 1500 }],
-    crates: [],
-    ice: [],
-    startSpecials: [
-      { row: 3, col: 3, type: 'StripedH' },
-      { row: 4, col: 4, type: 'StripedV' },
-    ],
-    starScore: [1500, 2500, 4000],
-  },
-  {
-    id: 17,
-    name: 'Five Alive',
-    rows: 8,
-    cols: 8,
-    moves: 30,
-    time: 999,
-    orbTypes: 6,
-    objectives: [
-      { type: 'orbs_matched', target: 15, element: 0 },
-      { type: 'orbs_matched', target: 15, element: 4 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [15, 25, 40],
-  },
-  {
-    id: 18,
-    name: 'Frost & Wood',
-    rows: 8,
-    cols: 8,
-    moves: 25,
-    time: 999,
-    orbTypes: 6,
-    objectives: [
-      { type: 'destroy_crates', target: 4 },
-    ],
-    crates: [
-      { row: 2, col: 2 }, { row: 5, col: 5 },
-      { row: 2, col: 5 }, { row: 5, col: 2 },
-    ],
-    ice: [
-      { row: 1, col: 1, layers: 1 }, { row: 1, col: 6, layers: 1 },
-      { row: 6, col: 1, layers: 1 }, { row: 6, col: 6, layers: 1 },
-      { row: 3, col: 3, layers: 2 }, { row: 4, col: 4, layers: 2 },
-    ],
-    starScore: [6, 10, 14],
-  },
-  {
-    id: 19,
-    name: 'Speed Run',
-    rows: 7,
-    cols: 7,
-    time: 10, // 40,
-    orbTypes: 6,
-    objectives: [{ type: 'score', target: 2000 }],
-    crates: [],
-    ice: [],
-    starScore: [2000, 3500, 5500],
-  },
-  {
-    id: 20,
-    name: 'Elemental Push',
-    rows: 8,
-    cols: 8,
-    moves: 28,
-    time: 999,
-    orbTypes: 6,
-    objectives: [
-      { type: 'orbs_matched', target: 20, element: 0 },
-      { type: 'orbs_matched', target: 20, element: 1 },
-      { type: 'orbs_matched', target: 20, element: 2 },
-      { type: 'orbs_matched', target: 20, element: 3 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [20, 30, 45],
-  },
-  {
-    id: 21,
-    name: 'Deep Freeze',
-    rows: 8,
-    cols: 8,
-    time: 10, // 65,
-    orbTypes: 6,
-    objectives: [{ type: 'score', target: 2500 }],
-    crates: [],
-    ice: [
-      { row: 0, col: 0, layers: 2 }, { row: 0, col: 7, layers: 2 },
-      { row: 7, col: 0, layers: 2 }, { row: 7, col: 7, layers: 2 },
-      { row: 1, col: 1, layers: 1 }, { row: 1, col: 6, layers: 1 },
-      { row: 6, col: 1, layers: 1 }, { row: 6, col: 6, layers: 1 },
-      { row: 2, col: 2, layers: 1 }, { row: 2, col: 5, layers: 1 },
-      { row: 5, col: 2, layers: 1 }, { row: 5, col: 5, layers: 1 },
-      { row: 3, col: 3, layers: 2 }, { row: 4, col: 4, layers: 2 },
-    ],
-    starScore: [2500, 4000, 6000],
-  },
-  {
-    id: 22,
-    name: 'Box Fortress',
-    rows: 8,
-    cols: 8,
-    moves: 30,
-    time: 999,
-    orbTypes: 6,
-    objectives: [{ type: 'destroy_crates', target: 12 }],
-    crates: [
-      { row: 0, col: 2 }, { row: 0, col: 5 },
-      { row: 1, col: 4 },
-      { row: 2, col: 0 }, { row: 2, col: 7 },
-      { row: 4, col: 1 },
-      { row: 5, col: 0 }, { row: 5, col: 7 },
-      { row: 6, col: 4 },
-      { row: 7, col: 2 }, { row: 7, col: 5 },
-      { row: 3, col: 3 }, { row: 4, col: 4 },
-    ],
-    ice: [],
-    startSpecials: [
-      { row: 0, col: 2, type: 'StripedV' },
-      { row: 7, col: 5, type: 'StripedH' },
-    ],
-    starScore: [12, 12, 12],
-  },
-  {
-    id: 23,
-    name: 'Dual Elements',
-    rows: 8,
-    cols: 8,
-    time: 10, // 55,
-    orbTypes: 6,
-    objectives: [
-      { type: 'orbs_matched', target: 50, element: 1 },
-      { type: 'orbs_matched', target: 50, element: 3 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [50, 80, 120],
-  },
-  {
-    id: 24,
-    name: 'Crystal maze',
-    rows: 9,
-    cols: 9,
-    time: 10, // 70,
-    orbTypes: 6,
-    objectives: [{ type: 'score', target: 3500 }],
-    crates: [
-      { row: 1, col: 1 }, { row: 1, col: 7 },
-      { row: 3, col: 3 }, { row: 3, col: 5 },
-      { row: 5, col: 3 }, { row: 5, col: 5 },
-      { row: 7, col: 1 }, { row: 7, col: 7 },
-    ],
-    ice: [
-      { row: 0, col: 0, layers: 1 }, { row: 0, col: 8, layers: 1 },
-      { row: 8, col: 0, layers: 1 }, { row: 8, col: 8, layers: 1 },
-      { row: 4, col: 4, layers: 3 },
-    ],
-    starScore: [3500, 5500, 8000],
-  },
-  {
-    id: 25,
-    name: 'Time Squeeze',
-    rows: 8,
-    cols: 8,
-    time: 10, // 45,
-    orbTypes: 6,
-    objectives: [{ type: 'score', target: 4000 }],
-    crates: [],
-    ice: [],
-    startSpecials: [
-      { row: 3, col: 3, type: 'Bomb' },
-      { row: 4, col: 4, type: 'Bomb' },
-    ],
-    starScore: [4000, 6000, 9000],
-  },
-  {
-    id: 26,
-    name: 'Crate Avalanche',
-    rows: 8,
-    cols: 8,
-    moves: 25,
-    time: 999,
-    orbTypes: 6,
-    objectives: [{ type: 'destroy_crates', target: 18 }],
-    crates: [
-      { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 6 }, { row: 0, col: 7 },
-      { row: 1, col: 3 }, { row: 1, col: 4 },
-      { row: 3, col: 1 }, { row: 3, col: 6 },
-      { row: 4, col: 1 }, { row: 4, col: 6 },
-      { row: 6, col: 3 }, { row: 6, col: 4 },
-      { row: 7, col: 0 }, { row: 7, col: 1 }, { row: 7, col: 6 }, { row: 7, col: 7 },
-      { row: 2, col: 2 }, { row: 5, col: 5 },
-    ],
-    ice: [],
-    starScore: [18, 18, 18],
-  },
-  {
-    id: 27,
-    name: 'Frost Bite',
-    rows: 8,
-    cols: 8,
-    moves: 28,
-    time: 999,
-    orbTypes: 6,
-    objectives: [{ type: 'score', target: 2500 }],
-    crates: [],
-    ice: [
-      { row: 0, col: 0, layers: 2 }, { row: 0, col: 1, layers: 2 }, { row: 0, col: 6, layers: 2 }, { row: 0, col: 7, layers: 2 },
-      { row: 1, col: 0, layers: 1 }, { row: 1, col: 7, layers: 1 },
-      { row: 2, col: 2, layers: 2 }, { row: 2, col: 5, layers: 2 },
-      { row: 3, col: 3, layers: 2 }, { row: 3, col: 4, layers: 2 },
-      { row: 4, col: 3, layers: 2 }, { row: 4, col: 4, layers: 2 },
-      { row: 5, col: 2, layers: 2 }, { row: 5, col: 5, layers: 2 },
-      { row: 6, col: 0, layers: 1 }, { row: 6, col: 7, layers: 1 },
-      { row: 7, col: 0, layers: 2 }, { row: 7, col: 1, layers: 2 }, { row: 7, col: 6, layers: 2 }, { row: 7, col: 7, layers: 2 },
-    ],
-    starScore: [2500, 3500, 5000],
-  },
-  {
-    id: 28,
-    name: 'Element Storm',
-    rows: 9,
-    cols: 9,
-    time: 10, // 55,
-    orbTypes: 6,
-    objectives: [
-      { type: 'orbs_matched', target: 30, element: 0 },
-      { type: 'orbs_matched', target: 30, element: 2 },
-      { type: 'orbs_matched', target: 30, element: 4 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [30, 50, 80],
-  },
-  {
-    id: 29,
-    name: 'Hard Labor',
-    rows: 9,
-    cols: 9,
-    moves: 30,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'score', target: 5000 },
-      { type: 'destroy_crates', target: 6 },
-    ],
-    crates: [
-      { row: 2, col: 2 }, { row: 2, col: 6 },
-      { row: 4, col: 0 }, { row: 4, col: 8 },
-      { row: 6, col: 2 }, { row: 6, col: 6 },
-    ],
-    ice: [],
-    starScore: [5000, 7500, 10000],
-  },
-  {
-    id: 30,
-    name: 'Ice Storm',
-    rows: 9,
-    cols: 9,
-    moves: 30,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'score', target: 5000 },
-    ],
-    crates: [],
-    ice: [
-      { row: 1, col: 1, layers: 2 }, { row: 1, col: 7, layers: 2 },
-      { row: 3, col: 3, layers: 2 }, { row: 3, col: 5, layers: 2 },
-      { row: 5, col: 3, layers: 2 }, { row: 5, col: 5, layers: 2 },
-      { row: 7, col: 1, layers: 2 }, { row: 7, col: 7, layers: 2 },
-    ],
-    startSpecials: [
-      { row: 4, col: 4, type: 'StripedV' },
-      { row: 3, col: 3, type: 'Bomb' },
-    ],
-    starScore: [5000, 7500, 10000],
-  },
-  {
-    id: 31,
-    name: 'Gauntlet II',
-    rows: 9,
-    cols: 9,
-    moves: 28,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'destroy_crates', target: 8 },
-    ],
-    crates: [
-      { row: 0, col: 4 }, { row: 1, col: 1 },
-      { row: 2, col: 7 }, { row: 4, col: 0 },
-      { row: 4, col: 8 }, { row: 6, col: 1 },
-      { row: 7, col: 7 }, { row: 8, col: 4 },
-    ],
-    ice: [
-      { row: 0, col: 0, layers: 2 }, { row: 2, col: 2, layers: 2 },
-      { row: 3, col: 4, layers: 2 }, { row: 4, col: 3, layers: 2 },
-      { row: 4, col: 5, layers: 2 }, { row: 5, col: 4, layers: 2 },
-      { row: 6, col: 6, layers: 2 }, { row: 8, col: 8, layers: 2 },
-    ],
-    starScore: [16, 20, 24],
-  },
-  {
-    id: 32,
-    name: 'Fracture',
-    rows: 9,
-    cols: 9,
-    time: 10, // 50,
-    orbTypes: 7,
-    objectives: [{ type: 'score', target: 6000 }],
-    crates: [
-      { row: 0, col: 0 }, { row: 0, col: 8 },
-      { row: 2, col: 4 },
-      { row: 4, col: 0 }, { row: 4, col: 4 }, { row: 4, col: 8 },
-      { row: 6, col: 4 },
-      { row: 8, col: 0 }, { row: 8, col: 8 },
-    ],
-    ice: [
-      { row: 0, col: 4, layers: 2 },
-      { row: 2, col: 2, layers: 2 }, { row: 2, col: 6, layers: 2 },
-      { row: 4, col: 2, layers: 2 }, { row: 4, col: 6, layers: 2 },
-      { row: 6, col: 2, layers: 2 }, { row: 6, col: 6, layers: 2 },
-      { row: 8, col: 4, layers: 2 },
-    ],
-    starScore: [6000, 9000, 13000],
-  },
-  {
-    id: 33,
-    name: 'All Elements',
-    rows: 9,
-    cols: 9,
-    moves: 30,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'orbs_matched', target: 25, element: 0 },
-      { type: 'orbs_matched', target: 25, element: 1 },
-      { type: 'orbs_matched', target: 25, element: 2 },
-      { type: 'orbs_matched', target: 25, element: 3 },
-      { type: 'orbs_matched', target: 25, element: 4 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [25, 40, 60],
-  },
-  {
-    id: 34,
-    name: 'Crate City',
-    rows: 9,
-    cols: 9,
-    moves: 25,
-    time: 999,
-    orbTypes: 7,
-    objectives: [{ type: 'destroy_crates', target: 24 }],
-    crates: [
-      { row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }, { row: 0, col: 7 },
-      { row: 1, col: 0 }, { row: 1, col: 8 },
-      { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 2, col: 6 },
-      { row: 3, col: 0 }, { row: 3, col: 8 },
-      { row: 4, col: 1 }, { row: 4, col: 3 }, { row: 4, col: 5 }, { row: 4, col: 7 },
-      { row: 5, col: 0 }, { row: 5, col: 8 },
-      { row: 6, col: 2 }, { row: 6, col: 4 }, { row: 6, col: 6 },
-      { row: 7, col: 0 }, { row: 7, col: 8 },
-      { row: 8, col: 1 }, { row: 8, col: 3 }, { row: 8, col: 5 }, { row: 8, col: 7 },
-    ],
-    ice: [],
-    starScore: [24, 24, 24],
-  },
-  {
-    id: 35,
-    name: 'Absolute Zero',
-    rows: 9,
-    cols: 9,
-    moves: 30,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'score', target: 3000 },
-    ],
-    crates: [],
-    ice: [
-      { row: 0, col: 0, layers: 2 }, { row: 0, col: 1, layers: 2 }, { row: 0, col: 2, layers: 2 }, { row: 0, col: 6, layers: 2 }, { row: 0, col: 7, layers: 2 }, { row: 0, col: 8, layers: 2 },
-      { row: 1, col: 0, layers: 1 }, { row: 1, col: 8, layers: 1 },
-      { row: 2, col: 0, layers: 1 }, { row: 2, col: 8, layers: 1 },
-      { row: 3, col: 3, layers: 2 }, { row: 3, col: 5, layers: 2 },
-      { row: 4, col: 4, layers: 3 },
-      { row: 5, col: 3, layers: 2 }, { row: 5, col: 5, layers: 2 },
-      { row: 6, col: 0, layers: 1 }, { row: 6, col: 8, layers: 1 },
-      { row: 7, col: 0, layers: 1 }, { row: 7, col: 8, layers: 1 },
-      { row: 8, col: 0, layers: 2 }, { row: 8, col: 1, layers: 2 }, { row: 8, col: 2, layers: 2 }, { row: 8, col: 6, layers: 2 }, { row: 8, col: 7, layers: 2 }, { row: 8, col: 8, layers: 2 },
-    ],
-    startSpecials: [
-      { row: 4, col: 4, type: 'ColorBomb' },
-      { row: 0, col: 4, type: 'Bomb' },
-      { row: 8, col: 4, type: 'Bomb' },
-    ],
-    starScore: [3000, 4000, 5000],
-  },
-  {
-    id: 36,
-    name: 'Triple Threat',
-    rows: 9,
-    cols: 9,
-    time: 10, // 50,
-    orbTypes: 7,
-    objectives: [
-      { type: 'score', target: 8000 },
-      { type: 'destroy_crates', target: 6 },
-    ],
-    crates: [
-      { row: 2, col: 2 }, { row: 2, col: 6 },
-      { row: 3, col: 4 },
-      { row: 5, col: 4 },
-      { row: 6, col: 2 }, { row: 6, col: 6 },
-    ],
-    ice: [
-      { row: 1, col: 1, layers: 2 }, { row: 1, col: 7, layers: 2 },
-      { row: 4, col: 3, layers: 2 }, { row: 4, col: 5, layers: 2 },
-      { row: 7, col: 1, layers: 2 }, { row: 7, col: 7, layers: 2 },
-    ],
-    starScore: [8000, 12000, 16000],
-  },
-  {
-    id: 37,
-    name: 'Elemental Master',
-    rows: 9,
-    cols: 9,
-    moves: 30,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'orbs_matched', target: 40, element: 0 },
-      { type: 'orbs_matched', target: 40, element: 1 },
-      { type: 'orbs_matched', target: 40, element: 2 },
-      { type: 'orbs_matched', target: 40, element: 3 },
-      { type: 'orbs_matched', target: 40, element: 4 },
-    ],
-    crates: [],
-    ice: [],
-    starScore: [40, 60, 80],
-  },
-  {
-    id: 38,
-    name: 'Fortress II',
-    rows: 9,
-    cols: 9,
-    moves: 35,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'destroy_crates', target: 10 },
-      { type: 'score', target: 5000 },
-    ],
-    crates: [
-      { row: 0, col: 3 }, { row: 0, col: 4 }, { row: 0, col: 5 },
-      { row: 3, col: 0 }, { row: 4, col: 0 }, { row: 5, col: 0 },
-      { row: 3, col: 8 }, { row: 4, col: 8 }, { row: 5, col: 8 },
-      { row: 8, col: 3 }, { row: 8, col: 4 }, { row: 8, col: 5 },
-    ],
-    ice: [
-      { row: 1, col: 1, layers: 2 }, { row: 1, col: 7, layers: 2 },
-      { row: 3, col: 3, layers: 2 }, { row: 3, col: 5, layers: 2 },
-      { row: 5, col: 3, layers: 2 }, { row: 5, col: 5, layers: 2 },
-      { row: 7, col: 1, layers: 2 }, { row: 7, col: 7, layers: 2 },
-      { row: 4, col: 4, layers: 3 },
-    ],
-    starScore: [20, 26, 32],
-  },
-  {
-    id: 39,
-    name: 'The Wall',
-    rows: 9,
-    cols: 9,
-    moves: 35,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'destroy_crates', target: 12 },
-      { type: 'score', target: 10000 },
-    ],
-    crates: [
-      { row: 4, col: 0 }, { row: 4, col: 1 }, { row: 4, col: 2 },
-      { row: 4, col: 6 }, { row: 4, col: 7 }, { row: 4, col: 8 },
-      { row: 0, col: 4 }, { row: 1, col: 4 }, { row: 2, col: 4 },
-      { row: 6, col: 4 }, { row: 7, col: 4 }, { row: 8, col: 4 },
-    ],
-    ice: [],
-    starScore: [10000, 15000, 20000],
-  },
-  {
-    id: 40,
-    name: 'Grand Finale',
-    rows: 9,
-    cols: 9,
-    moves: 40,
-    time: 999,
-    orbTypes: 7,
-    objectives: [
-      { type: 'score', target: 15000 },
-      { type: 'destroy_crates', target: 12 },
-    ],
-    crates: [
-      { row: 1, col: 1 }, { row: 1, col: 4 }, { row: 1, col: 7 },
-      { row: 4, col: 1 }, { row: 4, col: 7 },
-      { row: 7, col: 1 }, { row: 7, col: 4 }, { row: 7, col: 7 },
-      { row: 0, col: 4 },
-      { row: 4, col: 0 }, { row: 4, col: 8 },
-      { row: 8, col: 4 },
-    ],
-    ice: [
-      { row: 0, col: 0, layers: 3 }, { row: 0, col: 8, layers: 3 },
-      { row: 3, col: 3, layers: 2 }, { row: 3, col: 5, layers: 2 },
-      { row: 5, col: 3, layers: 2 }, { row: 5, col: 5, layers: 2 },
-      { row: 8, col: 0, layers: 3 }, { row: 8, col: 8, layers: 3 },
-      { row: 4, col: 4, layers: 3 },
-      { row: 0, col: 1, layers: 2 }, { row: 0, col: 7, layers: 2 },
-      { row: 8, col: 1, layers: 2 }, { row: 8, col: 7, layers: 2 },
-    ],
-    startSpecials: [
-      { row: 4, col: 4, type: 'ColorBomb' },
-      { row: 0, col: 0, type: 'Bomb' },
-      { row: 8, col: 8, type: 'Bomb' },
-    ],
-    starScore: [15000, 25000, 35000],
-  },
-];
+function genLevels(): LevelDef[] {
+  const out: LevelDef[] = [];
+
+  const names = [
+    'First Sparks', 'Warm Up', 'Elemental Mix', 'Crate Buster', 'Frozen Orbs',
+    'Deep Freeze', 'Rock Garden', 'Fire Storm', 'Waterfall', 'Leaf Pile',
+    'Thunder Clap', 'Iceberg', 'Wind Tunnel', 'Crystal Cave', 'Lava Flow',
+    'Bamboo Grove', 'Storm Front', 'Glacier', 'Dust Devil', 'Rain Forest',
+    'Volcano', 'Tide Pool', 'Meadow', 'Avalanche', 'Sand Storm',
+    'Typhoon', 'Tundra', 'Wild Fire', 'Oasis', 'Blizzard',
+    'Quake', 'Monsoon', 'Thorn Patch', 'Hail Storm', 'Tornado Alley',
+    'Magma Chamber', 'Coral Reef', 'Canopy', 'Permafrost', 'Hurricane',
+    'Ember Glade', 'Deep Blue', 'Root Bound', 'Flash Freeze', 'Gale Force',
+    'Pyre', 'Abyss', 'Verdant', 'Shard', 'Tempest',
+    'Inferno', 'Depths', 'Jungle', 'Frost', 'Squall',
+    'Nova', 'Riptide', 'Bloom', 'Chill', 'Zephyr',
+    'Scorch', 'Lagoon', 'Thicket', 'Hail', 'Gust',
+    'Meltdown', 'Whirlpool', 'Sprout', 'Shiver', 'Breeze',
+    'Combustion', 'Stream', 'Foliage', 'Sleet', 'Draft',
+    'Eruption', 'Cascade', 'Grove', 'Freeze', 'Flurry',
+    'Cinder', 'Spring', 'Forest', 'Frostbite', 'Windswept',
+    'Blaze', 'Brook', 'Fern', 'Icicle', 'Cyclone',
+    'Torch', 'River', 'Moss', 'Glaciate', 'Monsoon',
+    'Bonfire', 'Ocean', 'Petal', 'Subzero', 'Tailwind',
+    'Spark', 'Dew', 'Vine', 'Chillwind', 'Airburst',
+    'Flashover', 'Raindrop', 'Pollen', 'Crystal', 'Headwind',
+    'Sear', 'Puddle', 'Branch', 'Frozen Lake', 'Whirlwind',
+    'Caldera', 'Estuary', 'Canopy', 'Permafrost Rise', 'Jet Stream',
+    'Fire Pit', 'Reservoir', 'Fungus', 'Cold Snap', 'Updraft',
+    'Smolder', 'Geyser', 'Herb', 'Frost Heave', 'Downdraft',
+    'Char', 'Wellspring', 'Orchard', 'Névé', 'Crosswind',
+    'Ember Nest', 'Delta', 'Hedge', 'Firn', 'Cirrus',
+    'Flame Spire', 'Bayou', 'Bramble', 'Ice Core', 'Nimbus',
+    'Radiant', 'Springs', 'Thorns', 'Snowcap', 'Sirocco',
+    'Glow Worm', 'Marsh', 'Fern Gully', 'Glacial', 'Zephyr Vale',
+    'Solar Flare', 'Aquifer', 'Shrub', 'Frost Line', 'Trade Wind',
+    'Flint', 'Bog', 'Root Cell', 'Freeze Tag', 'Santa Ana',
+    'Crematory', 'Fjord', 'Berries', 'Ice Flow', 'Mistral',
+    'Burning Bush', 'Rain Barrow', 'Vines', 'Cryo', 'Bora',
+    'Wildfire', 'Stream Bed', 'Wild Rose', 'White Out', 'Chinook',
+    'Charcoal', 'Springs', 'Dogwood', 'Black Ice', 'Harmattan',
+    'Oven', 'Creek', 'Briar', 'Hoarfrost', 'Khamsin',
+    'Furnace', 'Tide', 'Sap', 'Rime', 'Shamal',
+    'Pit', 'Wetland', 'Hollow', 'Deep Chill', 'Mountain Wave',
+    'Sulfur', 'Watering Hole', 'Thistle', 'Cryogenic', 'Levanter',
+    'Firelight', 'Pond', 'Maple', 'Permachill', 'Vendaval',
+    'Inferno Core', 'Underground', 'Fern Gully', 'Glacial Drift', 'Southerly',
+    'Molten', 'Reservoir', 'Vineyard', 'Snow Field', 'Squall Line',
+    'Ash Heap', 'Fountain', 'Bamboo', 'Ice Sheet', 'Foehn',
+    'Cinder Block', 'Well', 'Garden', 'Frost Field', 'Meltwater',
+    'Flame Guard', 'Water Wheel', 'Topiary', 'Ice Patch', 'Wind Shear',
+    'Fire Wall', 'Rain Chain', 'Hedge Maze', 'Glazed', 'Jet Stream',
+    'Pods', 'Aqueduct', 'Thorn Wall', 'Frozen Tundra', 'Cumulus',
+    'Incineration', 'Reservoir 2', 'Root Maze', 'Glacier Pass', 'Stratus',
+    'Smelting', 'Watercourse', 'Shrubbery', 'Permafrost 2', 'Anvil',
+    'Dragon Fire', 'Silver Lake', 'Jade', 'Ice Palace', 'Nephology',
+    'Greek Fire', 'Crystal Lake', 'Emerald', 'Frost Palace', 'Alto',
+    'Hellfire', 'Mirror Lake', 'Jungle Gym', 'Crystal Palace', 'Cirrostratus',
+    'Sunburst', 'Lakebed', 'Forest Floor', 'Ice Castle', 'High Alto',
+    'Solar Wind', 'Deep Sea', 'Canopy Walk', 'Snow Fort', 'Stratocumulus',
+    'Nebula', 'Trench', 'Tree Top', 'Frozen Fortress', 'Cumulonimbus',
+    'Supernova', 'Abyssal', 'Forest Canopy', 'Icelands', 'Storm Front',
+  ];
+
+  function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  for (let id = 1; id <= 300; id++) {
+    const t = (id - 1) / 299;
+    const difficulty = Math.min(t, 1);
+
+    const rows = Math.min(6 + Math.floor(difficulty * 4), 10);
+    const cols = Math.min(6 + Math.floor(difficulty * 4), 10);
+    const orbTypes = Math.min(3 + Math.floor(difficulty * 4), 7);
+
+    let moves: number;
+    let time: number;
+    const isMoves = difficulty > 0.2 || (id % 3 !== 0);
+
+    if (isMoves) {
+      moves = Math.max(35, Math.floor(60 - difficulty * 15 + (Math.random() - 0.5) * 8));
+      time = 999;
+    } else {
+      moves = 0;
+      time = Math.max(90, Math.floor(150 - difficulty * 25 + (Math.random() - 0.5) * 20));
+    }
+
+    const multiObjective = difficulty > 0.4;
+    const objectives: LevelObjective[] = [];
+
+    const objRoll = Math.random();
+    if (difficulty < 0.15 || objRoll < 0.35) {
+      const target = Math.floor(800 + difficulty * 6000 + Math.random() * 500);
+      objectives.push({ type: 'score', target });
+    } else if (difficulty < 0.3 || objRoll < 0.55) {
+      const crateCount = Math.min(3 + Math.floor(difficulty * 8), 12);
+      objectives.push({ type: 'destroy_crates', target: Math.max(1, Math.floor(crateCount * (0.6 + Math.random() * 0.4))) });
+    } else if (difficulty < 0.5 || objRoll < 0.7) {
+      const iceCount = Math.min(3 + Math.floor(difficulty * 10), 15);
+      objectives.push({ type: 'destroy_ice', target: Math.max(1, Math.floor(iceCount * (0.5 + Math.random() * 0.5))) });
+    } else if (difficulty < 0.7 || objRoll < 0.85) {
+      const el = Math.floor(Math.random() * orbTypes);
+      const target = Math.floor(25 + difficulty * 60 + Math.random() * 15);
+      objectives.push({ type: 'orbs_matched', element: el, target });
+    } else {
+      const jellyTarget = Math.min(3 + Math.floor(difficulty * 10), 15);
+      objectives.push({ type: 'clear_jelly', target: Math.max(1, Math.floor(jellyTarget * (0.5 + Math.random() * 0.5))) });
+    }
+
+    if (multiObjective && Math.random() < 0.5) {
+      const secondTarget = Math.floor(400 + difficulty * 4000 + Math.random() * 300);
+      objectives.push({ type: 'score', target: secondTarget });
+    }
+
+    const crates: CrateDef[] = [];
+    const crateCount = difficulty > 0.2 ? Math.floor(difficulty * 8 * (0.3 + Math.random() * 0.7)) : 0;
+    const crateSet = new Set<string>();
+    for (let i = 0; i < crateCount && i < 15; i++) {
+      let attempts = 0;
+      while (attempts < 10) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        const key = `${r},${c}`;
+        if (!crateSet.has(key) && !((r === 0 || r === rows - 1) && (c === 0 || c === cols - 1))) {
+          crateSet.add(key);
+          crates.push({ row: r, col: c, hits: difficulty > 0.6 && Math.random() < 0.3 ? 2 : 1 });
+          break;
+        }
+        attempts++;
+      }
+    }
+
+    const ice: IceDef[] = [];
+    const iceCount = difficulty > 0.25 ? Math.floor(difficulty * 10 * (0.2 + Math.random() * 0.6)) : 0;
+    const iceSet = new Set<string>();
+    for (let i = 0; i < iceCount && i < 12; i++) {
+      let attempts = 0;
+      while (attempts < 10) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        const key = `${r},${c}`;
+        if (!crateSet.has(key) && !iceSet.has(key)) {
+          iceSet.add(key);
+          ice.push({ row: r, col: c, layers: difficulty > 0.7 && Math.random() < 0.3 ? 2 : 1 });
+          break;
+        }
+        attempts++;
+      }
+    }
+
+    const jelly: JellyDef[] = [];
+    const jellyCount = difficulty > 0.5 ? Math.floor(difficulty * 6 * (0.2 + Math.random() * 0.5)) : 0;
+    const jellySet = new Set<string>();
+    for (let i = 0; i < jellyCount && i < 10; i++) {
+      let attempts = 0;
+      while (attempts < 10) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        const key = `${r},${c}`;
+        if (!crateSet.has(key) && !iceSet.has(key) && !jellySet.has(key)) {
+          jellySet.add(key);
+          jelly.push({ row: r, col: c });
+          break;
+        }
+        attempts++;
+      }
+    }
+
+    const holes: { row: number; col: number }[] = [];
+    const holeCount = difficulty > 0.55 ? Math.max(0, Math.floor(difficulty * 5 * Math.random() - 1)) : 0;
+    const holeSet = new Set<string>();
+    for (let i = 0; i < holeCount && i < 4; i++) {
+      let attempts = 0;
+      while (attempts < 10) {
+        const r = 1 + Math.floor(Math.random() * (rows - 2));
+        const c = 1 + Math.floor(Math.random() * (cols - 2));
+        const key = `${r},${c}`;
+        if (!crateSet.has(key) && !iceSet.has(key) && !jellySet.has(key) && !holeSet.has(key)) {
+          holeSet.add(key);
+          holes.push({ row: r, col: c });
+          break;
+        }
+        attempts++;
+      }
+    }
+
+    const portals: PortalDef[] = [];
+    if (difficulty > 0.65 && Math.random() < 0.2 && rows >= 6 && cols >= 6) {
+      const r1 = 1 + Math.floor(Math.random() * (rows - 2));
+      const c1 = 1 + Math.floor(Math.random() * (cols - 2));
+      const r2 = 1 + Math.floor(Math.random() * (rows - 2));
+      const c2 = 1 + Math.floor(Math.random() * (cols - 2));
+      const k1 = `${r1},${c1}`, k2 = `${r2},${c2}`;
+      if (!crateSet.has(k1) && !crateSet.has(k2) && !holeSet.has(k1) && !holeSet.has(k2) && (r1 !== r2 || c1 !== c2)) {
+        portals.push({ from: { row: r1, col: c1 }, to: { row: r2, col: c2 } });
+      }
+    }
+
+    const starScore: [number, number, number] = [
+      Math.max(200, Math.floor(600 + difficulty * 7000 + Math.random() * 200)),
+      Math.max(400, Math.floor(1200 + difficulty * 11000 + Math.random() * 400)),
+      Math.max(800, Math.floor(2400 + difficulty * 18000 + Math.random() * 600)),
+    ];
+
+    out.push({
+      id,
+      name: names[(id - 1) % names.length] + (id > names.length ? ` ${Math.ceil(id / names.length)}` : ''),
+      rows, cols,
+      moves, time,
+      orbTypes,
+      objectives: objectives.length > 0 ? objectives : [{ type: 'score', target: 300 }],
+      crates, ice, jelly, holes, portals,
+      starScore,
+    });
+  }
+
+  return out;
+}
+
+export const levels = genLevels();
 
 export function getLevel(id: number): LevelDef | undefined {
   return levels.find(l => l.id === id);

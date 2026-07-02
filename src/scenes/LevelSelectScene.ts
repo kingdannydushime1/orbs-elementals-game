@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { levels, getTotalLevels } from '../levels';
-import { hasLives, saveLastLevel, loadCoins, buyLives, LIVES_COST, MAX_LIVES } from '../utils/save';
+import { hasLives, deductLife, saveLastLevel, loadCoins } from '../utils/save';
+import { showBuyLivesModal } from '../utils/modal';
 
 const ELEMENT_COLORS = [0xff6b35, 0x3a9bff, 0x8b6b3a, 0x44cc44];
 const ELEMENT_GLOWS = [0xff8844, 0x66bbff, 0xaa8855, 0x66ee66];
@@ -69,7 +70,8 @@ export class LevelSelectScene extends Phaser.Scene {
       pathPoints.push({ x, y });
     }
 
-    const scrollContainer = this.add.container(0, 0).setDepth(1);
+    const initialScrollY = scrollTop - nodeR;
+    const scrollContainer = this.add.container(0, initialScrollY).setDepth(1);
     scrollContainer.add(this.add.graphics());
     this.drawPath(pathPoints, s, scrollContainer);
     this.drawNodes(pathPoints, total, s, nodeR, scrollContainer);
@@ -95,11 +97,13 @@ export class LevelSelectScene extends Phaser.Scene {
       const dy = p.y - sd;
       if (Math.abs(dy) > 5) this.data.set('dragging', true);
       this.data.set('dragDist', Math.abs(dy));
-      scrollContainer.y = Phaser.Math.Clamp(this.data.get('contStartY') + dy, -maxScroll, 0);
+      scrollContainer.y = Phaser.Math.Clamp(this.data.get('contStartY') + dy, initialScrollY - maxScroll, initialScrollY);
     });
 
     this.input.on('pointerup', () => {
       this.data.set('scrollStartY', undefined);
+      this.data.set('dragging', false);
+      this.data.set('dragDist', 0);
     });
 
     const backBtn = this.add.text(20 * s, h - 36 * s, '\u2190 BACK', {
@@ -226,7 +230,7 @@ export class LevelSelectScene extends Phaser.Scene {
         pulse.lineStyle(1.5 * s, elementColor, 0.25);
         pulse.strokeCircle(0, 0, nodeR + 6 * s);
         nodeContainer.addAt(pulse, 0);
-        this.tweens.add({
+        const pulseTween = this.tweens.add({
           targets: pulse,
           scale: { from: 1, to: 1.5 },
           alpha: { from: 0.5, to: 0 },
@@ -234,6 +238,7 @@ export class LevelSelectScene extends Phaser.Scene {
           repeat: -1,
           ease: 'Quad.easeOut',
         });
+        nodeContainer.on('destroy', () => pulseTween.stop());
       } else {
         const lock = this.add.text(0, -nodeR - 8 * s, '\u{1F512}', {
           fontSize: `${Math.round(16 * s)}px`,
@@ -280,12 +285,6 @@ export class LevelSelectScene extends Phaser.Scene {
         });
 
         btnZone.on('pointerdown', () => {
-          if (this.data.get('dragging') || (this.data.get('dragDist') || 0) > 8) return;
-          if (!hasLives()) {
-            this.pendingLevelId = level.id;
-            this.showBuyLivesModal(w, h, s);
-            return;
-          }
           saveLastLevel(level.id);
           this.cameras.main.fadeOut(250, 0, 0, 0);
           this.time.delayedCall(250, () => {
@@ -314,117 +313,4 @@ export class LevelSelectScene extends Phaser.Scene {
     }
   }
 
-  private showBuyLivesModal(w: number, h: number, s: number) {
-    const overlay = this.add.graphics().setDepth(100);
-    overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, w, h);
-
-    const panelW = Math.min(320 * s, w * 0.9);
-    const panelH = 420 * s;
-    const px = w / 2;
-    const py = h / 2;
-    const panely = py - panelH / 2;
-
-    const panel = this.add.image(px, py, 'wood_panel').setDepth(101);
-    panel.setDisplaySize(panelW, panelH);
-
-    const panelBorder = this.add.graphics().setDepth(101);
-    panelBorder.lineStyle(3 * s, 0xffd700, 0.6);
-    panelBorder.strokeRoundedRect(px - panelW / 2, panely, panelW, panelH, 20 * s);
-
-    const heartsText = this.add.text(px, panely + 36 * s, '\u2764'.repeat(3), {
-      fontSize: `${Math.round(44 * s)}px`, color: '#ff4d6d',
-    }).setOrigin(0.5).setDepth(102);
-
-    const livesText = this.add.text(px, panely + 74 * s, '3 LIVES', {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(26 * s)}px`, color: '#fff8e7', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(102);
-
-    const divider = this.add.graphics().setDepth(102);
-    divider.lineStyle(1 * s, 0x8b6914, 0.4);
-    divider.lineBetween(px - panelW / 2 + 30 * s, panely + 104 * s, px + panelW / 2 - 30 * s, panely + 104 * s);
-
-    const coinIcon = this.add.text(px, panely + 130 * s, '\u{1FA99}', {
-      fontSize: `${Math.round(22 * s)}px`,
-    }).setOrigin(0.5).setDepth(102);
-
-    const infoText = this.add.text(px, panely + 158 * s, `Buy 3 lives (${LIVES_COST} coins)`, {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(15 * s)}px`, color: '#c4b5fd', fontStyle: 'italic',
-    }).setOrigin(0.5).setDepth(102);
-
-    const btnW = Math.min(240 * s, panelW - 40 * s);
-    const btnH = 52 * s;
-    const buyBtnY = panely + 188 * s;
-
-    const buyPanelBg = this.add.image(px, buyBtnY + btnH / 2, 'wood_panel').setDepth(102);
-    buyPanelBg.setDisplaySize(btnW, btnH);
-
-    const buyBorder = this.add.graphics().setDepth(102);
-    buyBorder.lineStyle(2.5 * s, 0x8b6914, 0.8);
-    buyBorder.strokeRoundedRect(px - btnW / 2, buyBtnY, btnW, btnH, 14 * s);
-
-    const buyText = this.add.text(px, buyBtnY + btnH / 2, `BUY 3 LIVES (${LIVES_COST} \u{1FA99})`, {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(18 * s)}px`, color: '#ffd700', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
-    buyText.on('pointerover', () => {
-      buyBorder.clear();
-      buyBorder.lineStyle(3.5 * s, 0xffd700, 1);
-      buyBorder.strokeRoundedRect(px - btnW / 2, buyBtnY, btnW, btnH, 14 * s);
-      buyText.setColor('#ffffff');
-    });
-    buyText.on('pointerout', () => {
-      buyBorder.clear();
-      buyBorder.lineStyle(2.5 * s, 0x8b6914, 0.8);
-      buyBorder.strokeRoundedRect(px - btnW / 2, buyBtnY, btnW, btnH, 14 * s);
-      buyText.setColor('#ffd700');
-    });
-    buyText.on('pointerdown', () => {
-      if (!buyLives()) return;
-      overlay.destroy(); panel.destroy(); panelBorder.destroy();
-      heartsText.destroy(); livesText.destroy(); divider.destroy();
-      coinIcon.destroy(); infoText.destroy();
-      buyPanelBg.destroy(); buyBorder.destroy(); buyText.destroy();
-      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
-      const lid = this.pendingLevelId;
-      saveLastLevel(lid);
-      this.cameras.main.fadeOut(250, 0, 0, 0);
-      this.time.delayedCall(250, () => {
-        this.scene.start('GameScene', { levelId: lid });
-      });
-    });
-
-    const cancelBtnW = Math.min(180 * s, panelW * 0.55);
-    const cancelBtnH = 48 * s;
-    const cancelBtnY = buyBtnY + btnH + 24 * s;
-
-    const cancelPanel = this.add.image(px, cancelBtnY + cancelBtnH / 2, 'wood_panel').setDepth(102);
-    cancelPanel.setDisplaySize(cancelBtnW, cancelBtnH);
-
-    const cancelBorder = this.add.graphics().setDepth(102);
-    cancelBorder.lineStyle(2.5 * s, 0x4a3a6a, 0.7);
-    cancelBorder.strokeRoundedRect(px - cancelBtnW / 2, cancelBtnY, cancelBtnW, cancelBtnH, 14 * s);
-
-    const cancelText = this.add.text(px, cancelBtnY + cancelBtnH / 2, 'CLOSE', {
-      fontFamily: 'Georgia, serif', fontSize: `${Math.round(20 * s)}px`, color: '#a78bfa', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(103).setInteractive({ useHandCursor: true });
-    cancelText.on('pointerover', () => {
-      cancelBorder.clear();
-      cancelBorder.lineStyle(3 * s, 0xa78bfa, 1);
-      cancelBorder.strokeRoundedRect(px - cancelBtnW / 2, cancelBtnY, cancelBtnW, cancelBtnH, 14 * s);
-      cancelText.setColor('#ffffff');
-    });
-    cancelText.on('pointerout', () => {
-      cancelBorder.clear();
-      cancelBorder.lineStyle(2.5 * s, 0x4a3a6a, 0.7);
-      cancelBorder.strokeRoundedRect(px - cancelBtnW / 2, cancelBtnY, cancelBtnW, cancelBtnH, 14 * s);
-      cancelText.setColor('#a78bfa');
-    });
-    cancelText.on('pointerdown', () => {
-      overlay.destroy(); panel.destroy(); panelBorder.destroy();
-      heartsText.destroy(); livesText.destroy(); divider.destroy();
-      coinIcon.destroy(); infoText.destroy();
-      buyPanelBg.destroy(); buyBorder.destroy(); buyText.destroy();
-      cancelPanel.destroy(); cancelBorder.destroy(); cancelText.destroy();
-    });
-  }
 }
