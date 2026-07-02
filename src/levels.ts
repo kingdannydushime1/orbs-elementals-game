@@ -251,9 +251,9 @@ function genLevels(): LevelDef[] {
     }
 
     const starScore: [number, number, number] = [
-      Math.max(5000, Math.floor(8000 + difficulty * 22000 + Math.random() * 2000)),
-      Math.max(10000, Math.floor(15000 + difficulty * 35000 + Math.random() * 3000)),
-      Math.max(20000, Math.floor(25000 + difficulty * 55000 + Math.random() * 5000)),
+      Math.max(500, Math.floor(800 + difficulty * 2200 + Math.random() * 200)),
+      Math.max(1000, Math.floor(1500 + difficulty * 3500 + Math.random() * 300)),
+      Math.max(2000, Math.floor(2500 + difficulty * 5500 + Math.random() * 500)),
     ];
 
     out.push({
