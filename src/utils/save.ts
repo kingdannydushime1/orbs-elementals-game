@@ -18,13 +18,16 @@ function starCoins(): number {
   } catch { return 0; }
 }
 
+const START_COINS = 300;
+
 export function loadCoins(): number {
   try {
     const raw = localStorage.getItem(COINS_KEY);
     if (raw === null) {
       const initial = starCoins();
       if (initial > 0) saveCoins(initial);
-      return initial;
+      else saveCoins(START_COINS);
+      return initial || START_COINS;
     }
     return parseInt(raw, 10);
   } catch { return 0; }
