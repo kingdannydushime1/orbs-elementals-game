@@ -132,37 +132,37 @@ function genLevels(): LevelDef[] {
     const isMoves = difficulty > 0.2 || (id % 3 !== 0);
 
     if (isMoves) {
-      moves = Math.max(35, Math.floor(60 - difficulty * 15 + (Math.random() - 0.5) * 8));
+      moves = Math.max(20, Math.min(45, Math.floor(20 + difficulty * 20 + (Math.random() - 0.5) * 6)));
       time = 999;
     } else {
       moves = 0;
-      time = Math.max(90, Math.floor(150 - difficulty * 25 + (Math.random() - 0.5) * 20));
+      time = Math.max(60, Math.min(120, Math.floor(60 + difficulty * 30 + (Math.random() - 0.5) * 15)));
     }
 
     const multiObjective = difficulty > 0.4;
     const objectives: LevelObjective[] = [];
 
     const objRoll = Math.random();
-    if (difficulty < 0.15 || objRoll < 0.35) {
-      const target = Math.floor(800 + difficulty * 6000 + Math.random() * 500);
+    if (difficulty < 0.15 || objRoll < 0.4) {
+      const target = Math.floor(1500 + difficulty * 3500 + Math.random() * 300);
       objectives.push({ type: 'score', target });
-    } else if (difficulty < 0.3 || objRoll < 0.55) {
+    } else if (difficulty < 0.3 || objRoll < 0.6) {
       const crateCount = Math.min(3 + Math.floor(difficulty * 8), 12);
-      objectives.push({ type: 'destroy_crates', target: Math.max(1, Math.floor(crateCount * (0.6 + Math.random() * 0.4))) });
-    } else if (difficulty < 0.5 || objRoll < 0.7) {
+      objectives.push({ type: 'destroy_crates', target: Math.max(1, Math.floor(crateCount * (0.5 + Math.random() * 0.3))) });
+    } else if (difficulty < 0.5 || objRoll < 0.75) {
       const iceCount = Math.min(3 + Math.floor(difficulty * 10), 15);
-      objectives.push({ type: 'destroy_ice', target: Math.max(1, Math.floor(iceCount * (0.5 + Math.random() * 0.5))) });
-    } else if (difficulty < 0.7 || objRoll < 0.85) {
+      objectives.push({ type: 'destroy_ice', target: Math.max(1, Math.floor(iceCount * (0.4 + Math.random() * 0.3))) });
+    } else if (difficulty < 0.7 || objRoll < 0.9) {
       const el = Math.floor(Math.random() * orbTypes);
-      const target = Math.floor(25 + difficulty * 60 + Math.random() * 15);
+      const target = Math.floor(10 + difficulty * 20 + Math.random() * 8);
       objectives.push({ type: 'orbs_matched', element: el, target });
     } else {
       const jellyTarget = Math.min(3 + Math.floor(difficulty * 10), 15);
-      objectives.push({ type: 'clear_jelly', target: Math.max(1, Math.floor(jellyTarget * (0.5 + Math.random() * 0.5))) });
+      objectives.push({ type: 'clear_jelly', target: Math.max(1, Math.floor(jellyTarget * (0.4 + Math.random() * 0.3))) });
     }
 
     if (multiObjective && Math.random() < 0.5) {
-      const secondTarget = Math.floor(400 + difficulty * 4000 + Math.random() * 300);
+      const secondTarget = Math.floor(800 + difficulty * 2200 + Math.random() * 200);
       objectives.push({ type: 'score', target: secondTarget });
     }
 
@@ -251,9 +251,9 @@ function genLevels(): LevelDef[] {
     }
 
     const starScore: [number, number, number] = [
-      Math.max(200, Math.floor(600 + difficulty * 7000 + Math.random() * 200)),
-      Math.max(400, Math.floor(1200 + difficulty * 11000 + Math.random() * 400)),
-      Math.max(800, Math.floor(2400 + difficulty * 18000 + Math.random() * 600)),
+      Math.max(500, Math.floor(800 + difficulty * 2200 + Math.random() * 200)),
+      Math.max(1000, Math.floor(1500 + difficulty * 3500 + Math.random() * 300)),
+      Math.max(2000, Math.floor(2500 + difficulty * 5500 + Math.random() * 500)),
     ];
 
     out.push({
