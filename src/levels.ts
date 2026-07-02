@@ -144,7 +144,7 @@ function genLevels(): LevelDef[] {
 
     const objRoll = Math.random();
     if (difficulty < 0.15 || objRoll < 0.4) {
-      const target = Math.floor(1500 + difficulty * 3500 + Math.random() * 300);
+      const target = Math.floor(15000 + difficulty * 35000 + Math.random() * 3000);
       objectives.push({ type: 'score', target });
     } else if (difficulty < 0.3 || objRoll < 0.6) {
       const crateCount = Math.min(3 + Math.floor(difficulty * 8), 12);
@@ -162,7 +162,7 @@ function genLevels(): LevelDef[] {
     }
 
     if (multiObjective && Math.random() < 0.5) {
-      const secondTarget = Math.floor(800 + difficulty * 2200 + Math.random() * 200);
+      const secondTarget = Math.floor(8000 + difficulty * 22000 + Math.random() * 2000);
       objectives.push({ type: 'score', target: secondTarget });
     }
 
@@ -251,9 +251,9 @@ function genLevels(): LevelDef[] {
     }
 
     const starScore: [number, number, number] = [
-      Math.max(500, Math.floor(800 + difficulty * 2200 + Math.random() * 200)),
-      Math.max(1000, Math.floor(1500 + difficulty * 3500 + Math.random() * 300)),
-      Math.max(2000, Math.floor(2500 + difficulty * 5500 + Math.random() * 500)),
+      Math.max(5000, Math.floor(8000 + difficulty * 22000 + Math.random() * 2000)),
+      Math.max(10000, Math.floor(15000 + difficulty * 35000 + Math.random() * 3000)),
+      Math.max(20000, Math.floor(25000 + difficulty * 55000 + Math.random() * 5000)),
     ];
 
     out.push({
@@ -262,7 +262,7 @@ function genLevels(): LevelDef[] {
       rows, cols,
       moves, time,
       orbTypes,
-      objectives: objectives.length > 0 ? objectives : [{ type: 'score', target: 300 }],
+      objectives: objectives.length > 0 ? objectives : [{ type: 'score', target: 10000 }],
       crates, ice, jelly, holes, portals,
       starScore,
     });

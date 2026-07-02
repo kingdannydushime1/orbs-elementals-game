@@ -1503,7 +1503,7 @@ export class GameScene extends Phaser.Scene {
       const row = parseInt(rStr), col = parseInt(cStr);
       const orb = this.grid[row]?.[col];
       if (orb) {
-        this.score += 5 * mult;
+        this.score += 50 * mult;
         for (const obj of this.objectives) {
           if (obj.type === 'score') obj.current = this.score;
           if (obj.type === 'orbs_matched' && obj.element === orb.type) obj.current++;
@@ -1513,12 +1513,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (toDestroy.size >= 4) {
-      this.score += 25 * mult;
-      this.showScorePopup(this.camW / 2, this.offY + this.gridW / 2 - 30 * this.sf, 25 * mult, 0xfbbf24);
+      this.score += 250 * mult;
+      this.showScorePopup(this.camW / 2, this.offY + this.gridW / 2 - 30 * this.sf, 250 * mult, 0xfbbf24);
     }
     if (toDestroy.size >= 5) {
-      this.score += 50 * mult;
-      this.showScorePopup(this.camW / 2, this.offY + this.gridW / 2 - 50 * this.sf, 50 * mult, 0xff6b35);
+      this.score += 500 * mult;
+      this.showScorePopup(this.camW / 2, this.offY + this.gridW / 2 - 50 * this.sf, 500 * mult, 0xff6b35);
     }
     this.scoreText.setText(String(this.score));
     this.updateObjectiveDisplay();
@@ -1623,7 +1623,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     burstParticles(this, this.cellX(col), this.cellY(row), orb.type, this.camW, this.camH, this.sf);
-    this.score += 5;
+    this.score += 50;
     this.scoreText.setText(String(this.score));
     if (orb.iceLayers > 0) {
       orb.iceLayers--;
